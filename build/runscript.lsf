@@ -1,0 +1,7 @@
+export CC=/sw/peak/gcc/9.1.0-alpha+20190716/bin/gcc
+export CXX=/sw/peak/gcc/9.1.0-alpha+20190716/bin/c++
+
+
+srun -n2 --cpus-per-task=1 --ntasks-per-node=1 $CHS_PATH/hvac_server $HVAC_SERVER_COUNT &
+
+srun -n2 --cpus-per-task=1 --ntasks-per-node=1 ../tests/basic_test
