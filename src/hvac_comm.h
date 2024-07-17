@@ -1,5 +1,6 @@
 #ifndef __HVAC_RPC_ENGINE_INTERNAL_H__
 #define __HVAC_RPC_ENGINE_INTERNAL_H__
+
 extern "C" {
 #include <mercury.h>
 #include <mercury_bulk.h>
