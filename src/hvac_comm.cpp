@@ -36,7 +36,7 @@ struct hvac_rpc_state {
 void hvac_init_comm(hg_bool_t listen)
 {
 
-	const char *info_string = "ofi+tcp;ofi_rxm://";  
+	const char *info_string = "ofi+verbs;ofi_rxm://";  
   /* 	int *pid_server = NULL;
 	PMI_Get_rank(pid_server);
 	L4C_INFO("PMI Rank ID: %d \n", pid_server);  
@@ -49,7 +49,7 @@ void hvac_init_comm(hg_bool_t listen)
 		L4C_INFO("Exported PMIX_RANK: %s \n", rankstr_str.c_str());
 	    }
 */
-        char *rank_str = getenv("SLURM_PROCID"); // "0";
+    char *rank_str = getenv("SLURM_PROCID"); // "0";
 	server_rank = atoi(rank_str);
 //	L4C_INFO("PMIX_RANK: %s Server Rank: %d \n", rankstr_str.c_str(), server_rank);
 	L4C_INFO("Server Rank: %d \n", server_rank);
@@ -77,10 +77,11 @@ void hvac_init_comm(hg_bool_t listen)
 		}else
 		{
 			L4C_FATAL("Failed to extract rank\n");
+            // L4C_INFO("Mecury initialized");
 		}
 	}
 
-	L4C_INFO("Mecury initialized");
+	// L4C_INFO("Mecury initialized");
 //	free(rank_str);
 	//free(pid_server);
 	//TODO The engine creates a pthread here to do the listening and progress work
@@ -250,6 +251,8 @@ hvac_open_rpc_handler(hg_handle_t handle)
     int ret = HG_Get_input(handle, &in);
     assert(ret == 0);
     string redir_path = in.path;
+    // path_cache_map in hvac_data_mover_internal.h 
+    // extern map<string, string> path_cache_map;
     if (path_cache_map.find(redir_path) != path_cache_map.end())
     {
         L4C_INFO("Server Rank %d : Successful Redirection %s to %s", server_rank, redir_path.c_str(), path_cache_map[redir_path].c_str());

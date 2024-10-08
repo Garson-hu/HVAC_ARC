@@ -8,6 +8,7 @@ extern "C" {
 #include <mercury_proc_string.h>
 }
 
+
 #include <string>
 using namespace std;
 /* visible API for example RPC operation */

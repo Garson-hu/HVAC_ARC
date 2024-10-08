@@ -214,7 +214,7 @@ const char * hvac_get_path(int fd)
 	return NULL;
 }
 
-bool hvac_remove_fd(int fd)
+bool hvac_remote_close(int fd)
 {
 	hvac_remote_close(fd);	
 	return fd_map.erase(fd);

@@ -3,6 +3,11 @@ include(FindPkgConfig)
 pkg_check_modules(MERCURY REQUIRED IMPORTED_TARGET mercury)
 pkg_check_modules(LOG4C REQUIRED IMPORTED_TARGET log4c)
 
+# if (NOT MERCURY_INCLUDE_DIRS)
+#     set(MERCURY_INCLUDE_DIRS "/home/ghu4/hvac/rlibrary/mercury2.3.1/include")
+# endif()
+# include_directories(${MERCURY_INCLUDE_DIRS})
+# link_directories(${MERCURY_LIBRARY_DIRS})
 
 #Dynamic Target
 add_library(hvac_client SHARED hvac_client.cpp hvac_data_mover.cpp hvac_comm.cpp hvac_comm_client.cpp wrappers.c hvac_logging.c)

@@ -63,9 +63,6 @@ void test_file_read(uint32_t iterations)
     /* Seed random num gen */
     srand(time(NULL));
 
-    
-
-
     for (int lcv = 0; lcv < iterations; lcv++)
     {
         uint32_t id = rand() % FILE_COUNT;
@@ -80,8 +77,6 @@ void test_file_read(uint32_t iterations)
         read(testfile, buffer, 4096);
 
         fprintf(stderr,"Actual test the contents of the buffer are \n%s\n", buffer);
-
-
 
         close(testfile);        
     }
