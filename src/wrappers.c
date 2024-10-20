@@ -106,7 +106,7 @@ int WRAP_DECL(open)(const char *pathname, int flags, ...)
 			L4C_INFO("Open: Tracking File %s",pathname);
 		}
 	}
-	
+	L4C_INFO("DEBUG_HU: Open: Returning (wrappers.c: open) %d",ret);
 	return ret;
 }
 
@@ -147,7 +147,7 @@ int WRAP_DECL(open64)(const char *pathname, int flags, ...)
 		}
 	}
 
-	
+	L4C_INFO("DEBUG_HU: Check Open64: Returning (wrappers.c: open64) %d",ret);
 	return ret;
 
 }

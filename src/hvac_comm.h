@@ -15,7 +15,19 @@ using namespace std;
 
 //RPC Open Handler
 MERCURY_GEN_PROC(hvac_open_out_t, ((int32_t)(ret_status)))
+/*
+typedef struct {
+    int32_t ret_status;
+} hvac_open_out_t;
+*/
+
 MERCURY_GEN_PROC(hvac_open_in_t, ((hg_string_t)(path)))
+/*
+typedef struct {
+    hg_string_t path;
+} hvac_open_in_t;
+*/
+
 
 //BULK Read Handler
 MERCURY_GEN_PROC(hvac_rpc_out_t, ((int32_t)(ret)))

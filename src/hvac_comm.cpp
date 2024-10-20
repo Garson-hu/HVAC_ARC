@@ -126,10 +126,11 @@ void *hvac_progress_fn(void *args)
 	return NULL;
 }
 
-/* I think only servers need to post their addresses. */
-/* There is an expectation that the server will be started in 
- * advance of the clients. Should the servers be started with an
- * argument regarding the number of servers? */
+/* I think only servers need to post their addresses. 
+   There is an expectation that the server will be started in 
+   advance of the clients. Should the servers be started with an
+   argument regarding the number of servers? 
+   */
 void hvac_comm_list_addr()
 {
 	char self_addr_string[PATH_MAX];
@@ -313,7 +314,7 @@ hg_id_t
 hvac_rpc_register(void)
 {
     hg_id_t tmp;
-
+    // & replace HG_Register()
     tmp = MERCURY_REGISTER(
         hg_class, "hvac_base_rpc", hvac_rpc_in_t, hvac_rpc_out_t, hvac_rpc_handler);
 

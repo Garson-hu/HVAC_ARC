@@ -27,7 +27,7 @@ static hg_id_t hvac_client_seek_id;
 ssize_t read_ret = -1;
 
 /* Mercury Data Caching */
-std::map<int, std::string> address_cache;
+std::map<int, std::string> address_cache;  // Key: Rank, Value: Server Address
 extern std::map<int, int > fd_redir_map;
 
 extern std::map<int, std::string > fd_map;
@@ -68,13 +68,32 @@ hvac_seek_cb(const struct hg_cb_info *info)
     return HG_SUCCESS;    
 }
 
+/*
+struct hg_cb_info {
+    union { /* Union of callback info structures */
+        struct hg_cb_info_lookup lookup;
+        struct hg_cb_info_forward forward;
+        struct hg_cb_info_respond respond;
+        struct hg_cb_info_bulk bulk;
+    } info;
+    void *arg;         /* User data */
+    hg_cb_type_t type; /* Callback type */
+    hg_return_t ret;   /* Return value */
+};
+*/
 static hg_return_t
 hvac_open_cb(const struct hg_cb_info *info)
 {
+    // & struct include: int32_t ret_status
     hvac_open_out_t out;
+    // & arg is void*, and it's the user data
     struct hvac_open_state *open_state = (struct hvac_open_state *)info->arg;    
     assert(info->ret == HG_SUCCESS);
-    HG_Get_output(info->info.forward.handle, &out);    
+
+    HG_Get_output(info->info.forward.handle, &out); 
+    L4C_INFO("DEBUG_HU: Open RPC Returned FD %d\n",out.ret_status);   
+
+    // & map the local fd to the remote fd, which will be used by the RPC later
     fd_redir_map[open_state->local_fd] = out.ret_status;
     L4C_INFO("Open RPC Returned FD %d\n",out.ret_status);
     HG_Free_output(info->info.forward.handle, &out);
@@ -200,26 +219,31 @@ void hvac_client_comm_gen_open_rpc(uint32_t svr_hash, string path, int fd)
     hg_addr_t svr_addr;
     hvac_open_in_t in;
     hg_handle_t handle;
-    struct hvac_open_state *hvac_open_state_p;
+    struct hvac_open_state *hvac_open_state_p;  // & hvac_open_state is a struct which contains local_fd
     int ret;
     done = HG_FALSE;
 
-    /* Get address */
+    /* Get address according to server hash  */
+    /* svr_hash is calculated as: ((fd_map[fd]) % g_hvac_server_count) */
     svr_addr = hvac_client_comm_lookup_addr(svr_hash);    
 
     /* Allocate args for callback pass through */
     hvac_open_state_p = (struct hvac_open_state *)malloc(sizeof(*hvac_open_state_p));
     hvac_open_state_p->local_fd = fd;
 
-    /* create create handle to represent this rpc operation */    
+    /* create  handle to represent this rpc operation
+        & warp the function from HG_Create()    
+    */    
     hvac_comm_create_handle(svr_addr, hvac_client_open_id, &handle);  
-
+    // L4C_INFO("DEBUG_HU: path: hvac_comm_client.cpp: hvac_client_comm_gen_open_rpc() %s",path.c_str());
     in.path = (hg_string_t)malloc(strlen(path.c_str()) + 1 );
     sprintf(in.path,"%s",path.c_str());
     
     ret = HG_Forward(handle, hvac_open_cb, hvac_open_state_p, &in);
     assert(ret == 0);
-
+    /*
+        & Warp the function from HG_Addr_free()
+    */
     hvac_comm_free_addr(svr_addr);
 
     return;
@@ -327,7 +351,7 @@ void hvac_client_comm_gen_seek_rpc(uint32_t svr_hash, int fd, int offset, int wh
 //Find the address
 hg_addr_t hvac_client_comm_lookup_addr(int rank)
 {
-	L4C_INFO("AWAIS RANK %d", rank);
+	L4C_INFO("Guangxing RANK %d", rank);
 	if (address_cache.find(rank) != address_cache.end())
 	{
         hg_addr_t target_server;

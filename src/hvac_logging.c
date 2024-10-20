@@ -84,9 +84,11 @@ void hvac_init_logging()
     char *param_log_dir = getenv(HVAC_LOG_DIR);
     if (param_log_dir == NULL) {
         param_log_dir = L4C_LOG_DIR;
+        L4C_INFO("Using default log directory %s\n", param_log_dir);
     }
     char *param_log_prefix = getenv(HVAC_LOG_PREFIX);
     if (param_log_prefix == NULL) {
+        L4C_INFO("Using default log prefix %s\n", L4C_LOG_NAME_PREFIX);
         param_log_prefix = L4C_LOG_NAME_PREFIX;
     }
 

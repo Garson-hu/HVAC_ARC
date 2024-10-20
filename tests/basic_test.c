@@ -26,7 +26,7 @@ void generate_files(uint32_t filecount){
     {
         snprintf(tfn,sizeof(tfn), "./testfile.%d.4096.%d", getpid(), lcv);
 
-        if ((testfile = open(tfn, O_WRONLY | O_CREAT | O_TRUNC,
+        if ((testfile = open64(tfn, O_WRONLY | O_CREAT | O_TRUNC,
                         S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)) == -1)
         {
             perror("Cannot open output file\n"); exit(1);
@@ -68,7 +68,7 @@ void test_file_read(uint32_t iterations)
         uint32_t id = rand() % FILE_COUNT;
         //fprintf(stderr,"File ID %d\n",id);
         snprintf(tfn,sizeof(tfn), "./testfile.%d.4096.%d", pid, id);
-        if ((testfile = open(tfn, O_RDONLY,
+        if ((testfile = open64(tfn, O_RDONLY,
                         S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)) == -1)
         {
             perror("Cannot open output file\n"); exit(1);
@@ -92,7 +92,7 @@ if (fork() == 0)
     {
         uint32_t id = rand() % FILE_COUNT;
         snprintf(tfn,sizeof(tfn), "./testfile.%d.4096.%d", pid, id);
-        if ((testfile = open(tfn, O_RDONLY,
+        if ((testfile = open64(tfn, O_RDONLY,
                         S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)) == -1)
         {
             fprintf(stderr,"Cannot open output file %s\n", tfn); exit(1);

@@ -72,6 +72,7 @@ static void __attribute((destructor)) hvac_client_shutdown()
 
 bool hvac_track_file(const char *path, int flags, int fd)
 {       
+	// L4C_INFO("DEBUG_HU: Tracking file original path (hvac_client.cpp: hvac_track_file()) %s\n",path);
         if (strstr(path, ".ports.cfg.") != NULL)
         {
             return false;
@@ -88,19 +89,29 @@ bool hvac_track_file(const char *path, int flags, int fd)
 
 	try {
 		std::string ppath = std::filesystem::canonical(path).parent_path();
+		// L4C_INFO("DEBUG_HU: Tracking file ppath (hvac_client.cpp: hvac_track_file()) %s\n",ppath);
+
 		// Check if current file exists in HVAC_DATA_DIR
-		if (hvac_data_dir != NULL){
+		if (hvac_data_dir != NULL)
+		{
 			std::string test = std::filesystem::canonical(hvac_data_dir);
-			
+			// ? path should be the directory of data
 			if (ppath.find(test) != std::string::npos)
 			{
 				//L4C_FATAL("Got a file want a stack trace");
-				L4C_INFO("Traacking used HV_DD file %s",path);
+				L4C_INFO("Tracking used HV_DD file path %s",path);
+				L4C_INFO("Tracking used HV_DD file ppath %s",ppath.c_str());
+				L4C_INFO("Tracking used HV_DD file canonical of path %s",std::filesystem::canonical(path).c_str());
 				fd_map[fd] = std::filesystem::canonical(path);
 				tracked = true;
 			}		
-		}else if (ppath == std::filesystem::current_path()) {       
-			L4C_INFO("Traacking used CWD file %s",path);
+		}
+		// & If not set the hvac_data_dir (such like test file)
+		else if (ppath == std::filesystem::current_path()) 
+		{     
+			L4C_INFO("Tracking used CWD file path %s",path);
+			L4C_INFO("Tracking used CWD file ppath %s",ppath.c_str());
+			L4C_INFO("Tracking used CWD file canonical of path %s",std::filesystem::canonical(path).c_str());
 			fd_map[fd] = std::filesystem::canonical(path);
 			tracked = true;
 		}
@@ -118,7 +129,7 @@ bool hvac_track_file(const char *path, int flags, int fd)
 			hvac_client_comm_register_rpc();
 			g_mercury_init = true;
 		}
-		
+		// Decide which server should we sent data
 		int host = std::hash<std::string>{}(fd_map[fd]) % g_hvac_server_count;	
 		L4C_INFO("Remote open - Host %d", host);
 		hvac_client_comm_gen_open_rpc(host, fd_map[fd], fd);
@@ -205,6 +216,7 @@ bool hvac_file_tracked(int fd)
 	return (fd_map.find(fd) != fd_map.end());
 }
 
+
 const char * hvac_get_path(int fd)
 {	
 	if (fd_map.find(fd) != fd_map.end())
@@ -214,7 +226,7 @@ const char * hvac_get_path(int fd)
 	return NULL;
 }
 
-bool hvac_remote_close(int fd)
+bool hvac_remove_fd(int fd)
 {
 	hvac_remote_close(fd);	
 	return fd_map.erase(fd);
