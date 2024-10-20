@@ -70,15 +70,15 @@ hvac_seek_cb(const struct hg_cb_info *info)
 
 /*
 struct hg_cb_info {
-    union { /* Union of callback info structures */
+    union { 
         struct hg_cb_info_lookup lookup;
         struct hg_cb_info_forward forward;
         struct hg_cb_info_respond respond;
         struct hg_cb_info_bulk bulk;
     } info;
-    void *arg;         /* User data */
-    hg_cb_type_t type; /* Callback type */
-    hg_return_t ret;   /* Return value */
+    void *arg;        
+    hg_cb_type_t type; 
+    hg_return_t ret;   
 };
 */
 static hg_return_t
@@ -93,7 +93,7 @@ hvac_open_cb(const struct hg_cb_info *info)
     HG_Get_output(info->info.forward.handle, &out); 
     L4C_INFO("DEBUG_HU: Open RPC Returned FD %d\n",out.ret_status);   
 
-    // & map the local fd to the remote fd, which will be used by the RPC later
+    // & map the local fd to the remote fd, which will be used by the RPC
     fd_redir_map[open_state->local_fd] = out.ret_status;
     L4C_INFO("Open RPC Returned FD %d\n",out.ret_status);
     HG_Free_output(info->info.forward.handle, &out);

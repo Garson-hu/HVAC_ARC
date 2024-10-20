@@ -35,6 +35,11 @@ MERCURY_GEN_PROC(hvac_rpc_in_t, ((int32_t)(input_val))((hg_bulk_t)(bulk_handle))
 
 //RPC Seek Handler
 MERCURY_GEN_PROC(hvac_seek_out_t, ((int32_t)(ret)))
+/*
+    typedef struct {
+        int32_t ret;
+    } hvac_seek_out_t;
+*/
 MERCURY_GEN_PROC(hvac_seek_in_t, ((int32_t)(fd))((int32_t)(offset))((int32_t)(whence)))
 
 

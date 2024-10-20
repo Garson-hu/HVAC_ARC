@@ -32,7 +32,7 @@ void generate_files(uint32_t filecount){
             perror("Cannot open output file\n"); exit(1);
         }
 
-        sprintf(buffer, "This is file %d and this was a successfully redirected read\n", lcv);
+        sprintf(buffer, "This is file %d and this was a successfully redirected open\n", lcv);
         write(testfile, (void *)buffer, 4096);
 
         close(testfile);
@@ -56,7 +56,7 @@ void test_file_read(uint32_t iterations)
     char tfn[256];
     /* 4K contiguous buffer in bytes */
     char buffer[4096];
-    char buffer2[4096];
+    // char buffer2[4096];
     int pid = getpid();
     int testfile = 0;
 
@@ -66,7 +66,7 @@ void test_file_read(uint32_t iterations)
     for (int lcv = 0; lcv < iterations; lcv++)
     {
         uint32_t id = rand() % FILE_COUNT;
-        //fprintf(stderr,"File ID %d\n",id);
+        fprintf(stderr,"File ID %d\n",id);
         snprintf(tfn,sizeof(tfn), "./testfile.%d.4096.%d", pid, id);
         if ((testfile = open64(tfn, O_RDONLY,
                         S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)) == -1)
@@ -81,7 +81,7 @@ void test_file_read(uint32_t iterations)
         close(testfile);        
     }
 
-if (fork() == 0)
+    if (fork() == 0)
     {
         printf("Hello from Child\n");
         exit(0);

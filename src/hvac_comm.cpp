@@ -1,3 +1,9 @@
+/*
+    hvac_comm.cpp is mainly responsible for server-side communication initialization 
+    and RPC processing. 
+    It uses the Mercury library to realize high-performance RPC communication.
+*/
+
 #include "hvac_comm.h"
 #include "hvac_data_mover_internal.h"
 
@@ -37,21 +43,21 @@ void hvac_init_comm(hg_bool_t listen)
 {
 
 	const char *info_string = "ofi+verbs;ofi_rxm://";  
-  /* 	int *pid_server = NULL;
-	PMI_Get_rank(pid_server);
-	L4C_INFO("PMI Rank ID: %d \n", pid_server);  
-        
-	std::string rankstr_str = std::to_string(*pid_server);
+    /* 	int *pid_server = NULL;
+        PMI_Get_rank(pid_server);
+        L4C_INFO("PMI Rank ID: %d \n", pid_server);  
+            
+        std::string rankstr_str = std::to_string(*pid_server);
 
-	    // Set the environment variable
-	    if (setenv("PMIX_RANK", rankstr_str.c_str(), 1) != 0) 
-	    {
-		L4C_INFO("Exported PMIX_RANK: %s \n", rankstr_str.c_str());
-	    }
-*/
-    char *rank_str = getenv("SLURM_PROCID"); // "0";
+            // Set the environment variable
+            if (setenv("PMIX_RANK", rankstr_str.c_str(), 1) != 0) 
+            {
+            L4C_INFO("Exported PMIX_RANK: %s \n", rankstr_str.c_str());
+            }
+    */
+    char *rank_str = getenv("SLURM_PROCID"); // Get the rank of the server 
 	server_rank = atoi(rank_str);
-//	L4C_INFO("PMIX_RANK: %s Server Rank: %d \n", rankstr_str.c_str(), server_rank);
+    //	L4C_INFO("PMIX_RANK: %s Server Rank: %d \n", rankstr_str.c_str(), server_rank);
 	L4C_INFO("Server Rank: %d \n", server_rank);
 
 	pthread_t hvac_progress_tid;
@@ -77,21 +83,28 @@ void hvac_init_comm(hg_bool_t listen)
 		}else
 		{
 			L4C_FATAL("Failed to extract rank\n");
-            // L4C_INFO("Mecury initialized");
 		}
 	}
 
-	// L4C_INFO("Mecury initialized");
-//	free(rank_str);
-	//free(pid_server);
+	//  L4C_INFO("Mecury initialized");
+    //  free(rank_str);
+	//  free(pid_server);
 	//TODO The engine creates a pthread here to do the listening and progress work
-	//I need to understand this better I don't want to create unecessary work for the client
+	// ! I need to understand this better I don't want to create unecessary work for the client
+    // ! For now, just create the progress thread
 	if (pthread_create(&hvac_progress_tid, NULL, hvac_progress_fn, NULL) != 0){
 		L4C_FATAL("Failed to initialized mecury progress thread\n");
 	}
 
 }
 
+/**
+ * @brief Shuts down the HVAC communication.
+ *
+ * This function sets the shutdown flag for the progress thread and, if the 
+ * Mercury context is initialized, proceeds with shutting down the context 
+ * and finalizing the Mercury class.
+ */
 void hvac_shutdown_comm()
 {
     hvac_progress_thread_shutdown_flags = true;
@@ -110,10 +123,12 @@ void hvac_shutdown_comm()
 
 }
 
+
 void *hvac_progress_fn(void *args)
 {
 	hg_return_t ret;
 	unsigned int actual_count = 0;
+    // hvac_progress_thread_shutdown_flags in initialized as 0, so always true if not invoke hvac_shutdown_comm()
 	while (!hvac_progress_thread_shutdown_flags){
 		do{
 			ret = HG_Trigger(hg_context, 0, 1, &actual_count);
@@ -138,15 +153,14 @@ void hvac_comm_list_addr()
         hg_addr_t self_addr;
 	FILE *na_config = NULL;
 	hg_size_t self_addr_string_size = PATH_MAX;
-//	char *stepid = getenv("PMIX_NAMESPACE");
+    //	char *stepid = getenv("PMIX_NAMESPACE");
 	char *jobid =  getenv("SLURM_JOBID");
-        L4C_INFO("JOB_ID: %s\n", jobid); 
+    L4C_INFO("JOB_ID: %s\n", jobid); 
 	sprintf(filename, "./.ports.cfg.%s", jobid);
 	/* Get self addr to tell client about */
-    	HG_Addr_self(hg_class, &self_addr);
-    	HG_Addr_to_string(
-        hg_class, self_addr_string, &self_addr_string_size, self_addr);
-    	HG_Addr_free(hg_class, self_addr);
+    HG_Addr_self(hg_class, &self_addr);
+    HG_Addr_to_string(hg_class, self_addr_string, &self_addr_string_size, self_addr);
+    HG_Addr_free(hg_class, self_addr);
     
 
     /* Write addr to a file */
@@ -244,6 +258,18 @@ hvac_rpc_handler(hg_handle_t handle)
 
 
 
+
+/**
+ * @brief Handle an open RPC request from a client.
+ *
+ * This function is invoked on the server when a client makes an RPC request
+ * to open a file.  It is responsible for opening the file and returning the
+ * file descriptor to the client.
+ *
+ * @param[in] handle The handle associated with this RPC request.
+ *
+ * @return An HG return code indicating the status of the RPC.
+ */
 static hg_return_t
 hvac_open_rpc_handler(hg_handle_t handle)
 {
