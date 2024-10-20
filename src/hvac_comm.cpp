@@ -143,8 +143,9 @@ void *hvac_progress_fn(void *args)
 
 /* I think only servers need to post their addresses. 
    There is an expectation that the server will be started in 
-   advance of the clients. Should the servers be started with an
-   argument regarding the number of servers? 
+   advance of the clients. 
+   Should the servers be started with an argument regarding the number of servers? 
+   ! If I need to create two servers, I need to post all of them's addresses in here I think for now
    */
 void hvac_comm_list_addr()
 {
@@ -154,8 +155,10 @@ void hvac_comm_list_addr()
 	FILE *na_config = NULL;
 	hg_size_t self_addr_string_size = PATH_MAX;
     //	char *stepid = getenv("PMIX_NAMESPACE");
+
 	char *jobid =  getenv("SLURM_JOBID");
     L4C_INFO("JOB_ID: %s\n", jobid); 
+
 	sprintf(filename, "./.ports.cfg.%s", jobid);
 	/* Get self addr to tell client about */
     HG_Addr_self(hg_class, &self_addr);
@@ -166,8 +169,7 @@ void hvac_comm_list_addr()
     /* Write addr to a file */
     na_config = fopen(filename, "a+");
     if (!na_config) {
-        L4C_ERR("Could not open config file from: %s\n",
-            filename);
+        L4C_ERR("Could not open config file from: %s\n", filename);
         exit(0);
     }
     fprintf(na_config, "%d %s\n", hvac_server_rank, self_addr_string);

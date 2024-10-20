@@ -101,8 +101,7 @@ void test_file_read(uint32_t iterations)
         read(testfile, (void *)buffer, 4096);
 
         fprintf(stderr,"Actual test the contents of the buffer are \n%s\n", buffer);
-
-
+        
         close(testfile);        
     }
 
