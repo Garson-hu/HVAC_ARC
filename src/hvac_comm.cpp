@@ -165,13 +165,13 @@ void hvac_comm_list_addr()
     HG_Addr_to_string(hg_class, self_addr_string, &self_addr_string_size, self_addr);
     HG_Addr_free(hg_class, self_addr);
     
-
     /* Write addr to a file */
     na_config = fopen(filename, "a+");
     if (!na_config) {
         L4C_ERR("Could not open config file from: %s\n", filename);
         exit(0);
     }
+    L4C_INFO("DEBUG_HU: self_addr_string: %s\n", self_addr_string); 
     fprintf(na_config, "%d %s\n", hvac_server_rank, self_addr_string);
     fclose(na_config);
 }
