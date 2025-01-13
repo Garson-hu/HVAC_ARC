@@ -1,5 +1,7 @@
 //Starting to use CPP functionality
-
+/*
+	Usage: Implement the logic of the open, read, seek and close operation from remote
+*/
 
 #include <map>
 #include <string>
@@ -14,31 +16,31 @@
 
 #define HVAC_CLIENT 1
 
-__thread bool tl_disable_redirect = false;
-bool g_disable_redirect = true;
-bool g_hvac_initialized = false;
-bool g_hvac_comm_initialized = false;
-bool g_mercury_init=false;
+__thread bool tl_disable_redirect = false; 			// Thread local variable, used to close IO redirection
+bool g_disable_redirect = true;						// Global variable, control all the IO redirection should be closed or not
+bool g_hvac_initialized = false;					// signal of hvac has been initialized or not
+bool g_hvac_comm_initialized = false;				// signal of hvac communication parts is initialized or not
+bool g_mercury_init=false;							// signal of mercury is initialized or not
 
 uint32_t g_hvac_server_count = 0;
 char *hvac_data_dir = NULL;
 
 pthread_mutex_t init_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-std::map<int,std::string> fd_map;
-std::map<int, int > fd_redir_map;
+std::map<int,std::string> fd_map;					// Store the FD of file to the file path
+std::map<int, int > fd_redir_map;					// Store the map of local FD to the remote FD
 
 /* Devise a way to safely call this and initialize early */
 static void __attribute__((constructor)) hvac_client_init()
 {	
     pthread_mutex_lock(&init_mutex);
-    if (g_hvac_initialized){
+    if (g_hvac_initialized){ 						// if already initialized, return
         pthread_mutex_unlock(&init_mutex);
         return;
     }
     hvac_init_logging();
 
-    char * hvac_data_dir_c = getenv("HVAC_DATA_DIR");
+   
 
     if (getenv("HVAC_SERVER_COUNT") != NULL)
     {
@@ -50,6 +52,7 @@ static void __attribute__((constructor)) hvac_client_init()
         exit(-1);
     }
 
+ 	char * hvac_data_dir_c = getenv("HVAC_DATA_DIR");
 
     if (hvac_data_dir_c != NULL)
     {
@@ -71,12 +74,13 @@ static void __attribute((destructor)) hvac_client_shutdown()
 }
 
 bool hvac_track_file(const char *path, int flags, int fd)
-{       
-	// L4C_INFO("DEBUG_HU: Tracking file original path (hvac_client.cpp: hvac_track_file()) %s\n",path);
-        if (strstr(path, ".ports.cfg.") != NULL)
-        {
-            return false;
-        }
+{     
+	if (DEBUG_HU) L4C_INFO("DEBUG_HU: Tracking file original path (hvac_client.cpp: hvac_track_file()) %s\n",path);
+	
+	if (strstr(path, ".ports.cfg.") != NULL)
+	{
+		return false;
+	}
 	//Always back out of RDONLY
 	bool tracked = false;
 	if ((flags & O_ACCMODE) == O_WRONLY) {
@@ -89,7 +93,7 @@ bool hvac_track_file(const char *path, int flags, int fd)
 
 	try {
 		std::string ppath = std::filesystem::canonical(path).parent_path();
-		// L4C_INFO("DEBUG_HU: Tracking file ppath (hvac_client.cpp: hvac_track_file()) %s\n",ppath);
+		if (DEBUG_HU) L4C_INFO("DEBUG_HU: Tracking file ppath (hvac_client.cpp: hvac_track_file()) %s\n",ppath);
 
 		// Check if current file exists in HVAC_DATA_DIR
 		if (hvac_data_dir != NULL)
@@ -129,10 +133,13 @@ bool hvac_track_file(const char *path, int flags, int fd)
 			hvac_client_comm_register_rpc();
 			g_mercury_init = true;
 		}
-		// Decide which server should we sent data
+		// ! Decide which server should we sent data
+		// ! Should change here if we have multi server
 		int host = std::hash<std::string>{}(fd_map[fd]) % g_hvac_server_count;	
 		L4C_INFO("Remote open - Host %d", host);
 		hvac_client_comm_gen_open_rpc(host, fd_map[fd], fd);
+
+		// * Wait for 
 		hvac_client_block();
 	}
 

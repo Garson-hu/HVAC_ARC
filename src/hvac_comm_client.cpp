@@ -91,7 +91,7 @@ hvac_open_cb(const struct hg_cb_info *info)
     assert(info->ret == HG_SUCCESS);
 
     HG_Get_output(info->info.forward.handle, &out); 
-    L4C_INFO("DEBUG_HU: Open RPC Returned FD %d\n",out.ret_status);   
+    if (DEBUG_HU)  L4C_INFO("DEBUG_HU: Open RPC Returned FD %d\n",out.ret_status);   
 
     // & map the local fd to the remote fd, which will be used by the RPC
     fd_redir_map[open_state->local_fd] = out.ret_status;
@@ -151,6 +151,10 @@ void hvac_client_comm_register_rpc()
     hvac_client_seek_id = hvac_seek_rpc_register();
 }
 
+/*
+    Blocks the current thread until an asynchronous remote procedure call (RPC) completes. 
+    Specifically, it synchronizes operations by waiting for condition variables between threads.
+*/
 void hvac_client_block()
 {
     /* wait for callbacks to finish */
@@ -193,7 +197,7 @@ void hvac_client_comm_gen_close_rpc(uint32_t svr_hash, int fd)
     hvac_close_in_t in;
     hg_handle_t handle; 
     int ret;
-
+    if (DEBUG_HU)  L4C_INFO("DEBUG_HU: RUN Sequence: Client 4\n");
     /* Get address */
     svr_addr = hvac_client_comm_lookup_addr(svr_hash);        
 
@@ -227,6 +231,14 @@ void hvac_client_comm_gen_open_rpc(uint32_t svr_hash, string path, int fd)
     /* svr_hash is calculated as: ((fd_map[fd]) % g_hvac_server_count) */
     svr_addr = hvac_client_comm_lookup_addr(svr_hash);    
 
+    L4C_INFO("DEBUG_HU: Calculated svr_hash: %u", svr_hash);
+    // L4C_INFO("DEBUG_HU: g_hvac_server_count: %u", g_hvac_server_count);
+    if (fd_map.find(fd) != fd_map.end()) {
+        L4C_INFO("DEBUG_HU: fd_map[fd]: %s", fd_map[fd].c_str());
+    } else {
+        L4C_ERR("DEBUG_HU: fd_map does not contain fd: %d", fd);
+    }
+
     /* Allocate args for callback pass through */
     hvac_open_state_p = (struct hvac_open_state *)malloc(sizeof(*hvac_open_state_p));
     hvac_open_state_p->local_fd = fd;
@@ -235,7 +247,7 @@ void hvac_client_comm_gen_open_rpc(uint32_t svr_hash, string path, int fd)
         & warp the function from HG_Create()    
     */    
     hvac_comm_create_handle(svr_addr, hvac_client_open_id, &handle);  
-    // L4C_INFO("DEBUG_HU: path: hvac_comm_client.cpp: hvac_client_comm_gen_open_rpc() %s",path.c_str());
+    if (DEBUG_HU)  L4C_INFO("DEBUG_HU: path: hvac_comm_client.cpp: hvac_client_comm_gen_open_rpc() %s",path.c_str());
     in.path = (hg_string_t)malloc(strlen(path.c_str()) + 1 );
     sprintf(in.path,"%s",path.c_str());
     
@@ -325,6 +337,7 @@ void hvac_client_comm_gen_seek_rpc(uint32_t svr_hash, int fd, int offset, int wh
 
     /* Get address */
     svr_addr = hvac_client_comm_lookup_addr(svr_hash);    
+    // L4C_INFO("DEBUG_HU: RUN Sequence: Client 6\n");
 
     /* Allocate args for callback pass through */    
     /* create create handle to represent this rpc operation */    

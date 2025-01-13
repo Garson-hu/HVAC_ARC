@@ -27,6 +27,9 @@ static int hvac_progress_thread_shutdown_flags = 0;
 static int hvac_server_rank = -1;
 static int server_rank = -1;
 
+// ! .ports.cfg.<JOB_ID> write lock
+pthread_mutex_t file_write_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 /* struct used to carry state of overall operation across callbacks */
 struct hvac_rpc_state {
     hg_size_t size;
@@ -56,9 +59,13 @@ void hvac_init_comm(hg_bool_t listen)
             }
     */
     char *rank_str = getenv("SLURM_PROCID"); // Get the rank of the server 
+    if (rank_str == NULL) {
+        L4C_FATAL("SLURM_PROCID is not set. Please ensure the script is run through SLURM.");
+        exit(EXIT_FAILURE);
+    }
 	server_rank = atoi(rank_str);
-    //	L4C_INFO("PMIX_RANK: %s Server Rank: %d \n", rankstr_str.c_str(), server_rank);
-	L4C_INFO("Server Rank: %d \n", server_rank);
+    L4C_INFO("PMIX_RANK: %s Server Rank: %d \n", rank_str, server_rank);
+	// L4C_INFO("Server Rank: %d \n", server_rank);
 
 	pthread_t hvac_progress_tid;
 
@@ -145,10 +152,12 @@ void *hvac_progress_fn(void *args)
    There is an expectation that the server will be started in 
    advance of the clients. 
    Should the servers be started with an argument regarding the number of servers? 
-   ! If I need to create two servers, I need to post all of them's addresses in here I think for now
+   ! If I need to create two servers, I think that I need to post all of them's addresses in here  for now
    */
 void hvac_comm_list_addr()
 {
+    pthread_mutex_lock(&file_write_mutex);
+
 	char self_addr_string[PATH_MAX];
 	char filename[PATH_MAX];
         hg_addr_t self_addr;
@@ -169,11 +178,17 @@ void hvac_comm_list_addr()
     na_config = fopen(filename, "a+");
     if (!na_config) {
         L4C_ERR("Could not open config file from: %s\n", filename);
+        pthread_mutex_unlock(&file_write_mutex);
         exit(0);
     }
-    L4C_INFO("DEBUG_HU: self_addr_string: %s\n", self_addr_string); 
+    if (DEBUG_HU)  L4C_INFO("DEBUG_HU: self_addr_string: %s\n", self_addr_string);
+    L4C_INFO("Server Rank: %d, Address: %s", hvac_server_rank, self_addr_string);
+    // &  Write the server's rank and address to a configuration file 
+    // &  (e.g. . /.ports.cfg.<JOB_ID>) for (CLIENTS) to find and connect to.
     fprintf(na_config, "%d %s\n", hvac_server_rank, self_addr_string);
     fclose(na_config);
+
+    pthread_mutex_unlock(&file_write_mutex);
 }
 
 
@@ -186,7 +201,7 @@ hvac_rpc_handler_bulk_cb(const struct hg_cb_info *info)
     int ret;
     hvac_rpc_out_t out;
     out.ret = hvac_rpc_state_p->size;
-
+    // & infor->ret is the type of hg_return_t
     assert(info->ret == 0);
 
     ret = HG_Respond(hvac_rpc_state_p->handle, NULL, NULL, &out);
@@ -202,6 +217,7 @@ hvac_rpc_handler_bulk_cb(const struct hg_cb_info *info)
 
 
 
+// & handle read request
 static hg_return_t
 hvac_rpc_handler(hg_handle_t handle)
 {
@@ -209,7 +225,6 @@ hvac_rpc_handler(hg_handle_t handle)
     struct hvac_rpc_state *hvac_rpc_state_p;
     const struct hg_info *hgi;
     ssize_t readbytes;
-
     hvac_rpc_state_p = (struct hvac_rpc_state*)malloc(sizeof(*hvac_rpc_state_p));
 
     /* decode input */
@@ -222,10 +237,7 @@ hvac_rpc_handler(hg_handle_t handle)
     hvac_rpc_state_p->size = hvac_rpc_state_p->in.input_val;
     hvac_rpc_state_p->handle = handle;
 
-
-
     /* register local target buffer for bulk access */
-
     hgi = HG_Get_info(handle);
     assert(hgi);
     ret = HG_Bulk_create(hgi->hg_class, 1, &hvac_rpc_state_p->buffer,
@@ -276,13 +288,15 @@ static hg_return_t
 hvac_open_rpc_handler(hg_handle_t handle)
 {
     hvac_open_in_t in;
-    hvac_open_out_t out;    
+    hvac_open_out_t out;
     int ret = HG_Get_input(handle, &in);
     assert(ret == 0);
+
     string redir_path = in.path;
+
     // path_cache_map in hvac_data_mover_internal.h 
     // extern map<string, string> path_cache_map;
-    if (path_cache_map.find(redir_path) != path_cache_map.end())
+    if (path_cache_map.find(redir_path) != path_cache_map.end()) // & If the file is already in cache
     {
         L4C_INFO("Server Rank %d : Successful Redirection %s to %s", server_rank, redir_path.c_str(), path_cache_map[redir_path].c_str());
         redir_path = path_cache_map[redir_path];
@@ -296,19 +310,22 @@ hvac_open_rpc_handler(hg_handle_t handle)
 
 }
 
+
 static hg_return_t
 hvac_close_rpc_handler(hg_handle_t handle)
 {
     hvac_close_in_t in;
     int ret = HG_Get_input(handle, &in);
     assert(ret == HG_SUCCESS);
-
     L4C_INFO("Closing File %d\n",in.fd);
     ret = close(in.fd);
     assert(ret == 0);
 
-    //Signal to the data mover to copy the file
-    if (path_cache_map.find(fd_to_path[in.fd]) == path_cache_map.end())
+
+    // & data move will be done after the server close the files
+    // & fd_to_path[in.fd] in store the local path and fd
+    // Signal to the data mover to copy the file
+    if (path_cache_map.find(fd_to_path[in.fd]) == path_cache_map.end()) // & if the path is not in the cache
     {
         L4C_INFO("Caching %s",fd_to_path[in.fd].c_str());
         pthread_mutex_lock(&data_mutex);

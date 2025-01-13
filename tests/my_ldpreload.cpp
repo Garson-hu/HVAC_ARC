@@ -10,45 +10,46 @@
 #include <vector>
 #include <set>
 #include <fstream>
-
+#include <unistd.h>
+#include <execinfo.h>
 extern "C" {
     int (*real_open)(const char *pathname, int flags, ...) = nullptr;
     int (*real_open64)(const char *pathname, int flags, ...) = nullptr;
     FILE* (*real_fopen)(const char *pathname, const char *mode) = nullptr;
-    ssize_t (*real_read)(int fd, void *buf, size_t count) = nullptr;
+
     int (*real_close)(int fd) = nullptr;
-    // int (*real_openat)(int dirfd, const char *pathname, int flags, ...) = nullptr;
-    // int (*real_creat)(const char *pathname, mode_t mode) = nullptr;
-    // FILE* (*real_fdopen)(int fd, const char *mode) = nullptr;
-    // FILE* (*real_freopen)(const char *pathname, const char *mode, FILE *stream) = nullptr;
 
+    ssize_t (*real_read)(int fd, void *buf, size_t count) = nullptr;
+    ssize_t (*real_read64)(int fd, void *buf, size_t count) = nullptr;
+    ssize_t (*real_readv)(int fd, const struct iovec *iov, int iovcnt) = nullptr;
+    ssize_t (*real_pread)(int fd, void *buf, size_t count, off_t offset) = nullptr;
 
+    size_t read64_count = 0;
+    size_t readv_count = 0;
+    size_t pread_count = 0;
     size_t open_count = 0;
     size_t fopen_count = 0;
     size_t read_count = 0;
     size_t close_count = 0;
 
-    size_t openat_count = 0;
-    size_t creat_count = 0;
-    size_t fdopen_count = 0;
-    size_t freopen_count = 0;
-
     std::vector<long> open_times;
     std::vector<long> fopen_times;
-    std::vector<long> read_times;
     std::vector<long> close_times;
 
     std::set<int> unique_open_fds;
     std::set<int> unique_close_fds;
     std::set<FILE*> unique_fopen_files;
-    std::set<int> unique_openat_fds;
-    std::set<int> unique_creat_fds;
-    std::set<FILE*> unique_fdopen_files;
-    std::set<FILE*> unique_freopen_files;
+
+    std::vector<long> read_times;
+    std::vector<long> read64_times;
+    std::vector<long> readv_times;
+    std::vector<long> pread_times;
+
     long get_duration(struct timespec start, struct timespec end) {
         return (end.tv_sec - start.tv_sec) * 1e9 + (end.tv_nsec - start.tv_nsec);
     }
 
+    
     int open(const char *pathname, int flags, ...) {
         struct timespec start, end;
         clock_gettime(CLOCK_MONOTONIC, &start);
@@ -75,7 +76,7 @@ extern "C" {
         clock_gettime(CLOCK_MONOTONIC, &end);
         open_times.push_back(get_duration(start, end));
         printf("DEBUG_HU: MY_LD_PRELOAD: Open fd %d from pathname %s\n", fd, pathname);
-
+        // print_backtrace();
         if (fd >= 0) {
             unique_open_fds.insert(fd);
             open_count++;
@@ -147,83 +148,68 @@ extern "C" {
 
         clock_gettime(CLOCK_MONOTONIC, &end);
         read_times.push_back(get_duration(start, end));
+        printf("DEBUG_HU: MY_LD_PRELOAD: Read fd %d\n", fd);
         read_count++;
         return ret;
     }
-    // !--------------------------------- Maybe unrelated function --------------------------------
-    // int openat(int dirfd, const char *pathname, int flags, ...) {
-    //     if (!real_openat) {
-    //         real_openat = (int (*)(int, const char*, int, ...)) dlsym(RTLD_NEXT, "openat");
-    //     }
 
-    //     va_list args;
-    //     va_start(args, flags);
-    //     int fd;
-    //     if (flags & O_CREAT) {
-    //         mode_t mode = va_arg(args, mode_t);
-    //         fd = real_openat(dirfd, pathname, flags, mode);
-    //     } else {
-    //         fd = real_openat(dirfd, pathname, flags);
-    //     }
-    //     va_end(args);
+    ssize_t read64(int fd, void *buf, size_t count) {
+        struct timespec start, end;
+        clock_gettime(CLOCK_MONOTONIC, &start);
 
-    //     printf("DEBUG_HU: MY_LD_PRELOAD: Openat fd %d from pathname %s\n", fd, pathname);
+        if (!real_read64) {
+            real_read64 = (ssize_t (*)(int, void*, size_t)) dlsym(RTLD_NEXT, "read64");
+            if (!real_read64) {
+                fprintf(stderr, "Error in `dlsym` for read64\n");
+                return -1;
+            }
+        }
+        ssize_t ret = real_read64(fd, buf, count);
 
-    //     if (fd >= 0) {
-    //         unique_openat_fds.insert(fd);
-    //         openat_count++;
-    //     }
-    //     return fd;
-    // }
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        read64_times.push_back(get_duration(start, end));
+        printf("DEBUG_HU: MY_LD_PRELOAD: Read64 fd %d\n", fd);
+        read64_count++;
+        return ret;
+    }
 
-    // // Creat
-    // int creat(const char *pathname, mode_t mode) {
-    //     if (!real_creat) {
-    //         real_creat = (int (*)(const char*, mode_t)) dlsym(RTLD_NEXT, "creat");
-    //     }
+    ssize_t readv(int fd, const struct iovec *iov, int iovcnt) {
+        struct timespec start, end;
+        clock_gettime(CLOCK_MONOTONIC, &start);
 
-    //     int fd = real_creat(pathname, mode);
-    //     printf("DEBUG_HU: MY_LD_PRELOAD: Creat fd %d from pathname %s\n", fd, pathname);
+        if (!real_readv) {
+            real_readv = (ssize_t (*)(int, const struct iovec*, int)) dlsym(RTLD_NEXT, "readv");
+            if (!real_readv) {
+                fprintf(stderr, "Error in `dlsym` for readv\n");
+                return -1;
+            }
+        }
+        ssize_t ret = real_readv(fd, iov, iovcnt);
 
-    //     if (fd >= 0) {
-    //         unique_creat_fds.insert(fd);
-    //         creat_count++;
-    //     }
-    //     return fd;
-    // }
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        readv_times.push_back(get_duration(start, end));
+        readv_count++;
+        return ret;
+    }
 
-    // // Fdopen
-    // FILE* fdopen(int fd, const char *mode) {
-    //     if (!real_fdopen) {
-    //         real_fdopen = (FILE* (*)(int, const char*)) dlsym(RTLD_NEXT, "fdopen");
-    //     }
+    ssize_t pread(int fd, void *buf, size_t count, off_t offset) {
+        struct timespec start, end;
+        clock_gettime(CLOCK_MONOTONIC, &start);
 
-    //     FILE* file = real_fdopen(fd, mode);
-    //     printf("DEBUG_HU: MY_LD_PRELOAD: Fdopen file %p for fd %d\n", file, fd);
-
-    //     if (file) {
-    //         unique_fdopen_files.insert(file);
-    //         fdopen_count++;
-    //     }
-    //     return file;
-    // }
-
-    // // Freopen
-    // FILE* freopen(const char *pathname, const char *mode, FILE *stream) {
-    //     if (!real_freopen) {
-    //         real_freopen = (FILE* (*)(const char*, const char*, FILE*)) dlsym(RTLD_NEXT, "freopen");
-    //     }
-
-    //     FILE* file = real_freopen(pathname, mode, stream);
-    //     printf("DEBUG_HU: MY_LD_PRELOAD: Freopen file %p to pathname %s\n", file, pathname);
-
-    //     if (file) {
-    //         unique_freopen_files.insert(file);
-    //         freopen_count++;
-    //     }
-    //     return file;
-    // }
-    //  !---------------------------------  Maybe unrelated function --------------------------------
+        if (!real_pread) {
+            real_pread = (ssize_t (*)(int, void*, size_t, off_t)) dlsym(RTLD_NEXT, "pread");
+            if (!real_pread) {
+                fprintf(stderr, "Error in `dlsym` for pread\n");
+                return -1;
+            }
+        }
+        ssize_t ret = real_pread(fd, buf, count, offset);
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        pread_times.push_back(get_duration(start, end));
+        printf("DEBUG_HU: MY_LD_PRELOAD: Pread %ld bytes from fd %d\n", count, fd);
+        pread_count++;
+        return ret;
+    }
 
     int close(int fd) {
         struct timespec start, end;
@@ -240,6 +226,7 @@ extern "C" {
 
         clock_gettime(CLOCK_MONOTONIC, &end);
         close_times.push_back(get_duration(start, end));
+        // print_backtrace();
         printf("DEBUG_HU: MY_LD_PRELOAD: Close fd %d\n", fd);
         close_count++;
         unique_close_fds.insert(fd);
@@ -247,7 +234,7 @@ extern "C" {
     }
 
     __attribute__((destructor)) void write_results() {
-        std::ofstream outfile("operation_stats.txt");
+        std::ofstream outfile("operation_stats.txt"); 
 
         outfile << "Open operations: " << open_count << "\n";
         for (auto time : open_times) outfile << time << " ns\n";
@@ -272,6 +259,15 @@ extern "C" {
         outfile << "Unique Fopen files: " << unique_fopen_files.size() << ", Files: ";
         for (auto file : unique_fopen_files) outfile << file << " ";
         outfile << "\n";
+
+        outfile << "\nRead64 operations: " << read64_count << "\n";
+        for (auto time : read64_times) outfile << time << " ns\n";
+
+        outfile << "\nReadv operations: " << readv_count << "\n";
+        for (auto time : readv_times) outfile << time << " ns\n";
+
+        outfile << "\nPread operations: " << pread_count << "\n";
+        for (auto time : pread_times) outfile << time << " ns\n";
 
         outfile.close();
     }
