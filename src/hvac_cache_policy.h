@@ -1,7 +1,7 @@
 /**
  * Author: Guangxing Hu
  * Affliation: North Carolina State University
- * Email: ghu4@ncsu.esd
+ * Email: ghu4@ncsu.edu
  * 
  * This header file declares data structures and functions
  * for managing a multi-tier caching policy:

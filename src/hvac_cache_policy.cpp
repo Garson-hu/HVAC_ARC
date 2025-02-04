@@ -1,3 +1,9 @@
+/*
+ * Author: Guangxing Hu
+ * Affliation: North Carolina State University
+ * Email: ghu4@ncsu.edu
+*/
+
 #include "hvac_cache_policy.h"
 #include <map>
 #include <string>
