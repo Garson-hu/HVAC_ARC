@@ -34,9 +34,9 @@ extern "C" {
  * Indicates the storage tier where a file resides.
  */
 typedef enum {
-    CACHE_TIER_PM = 0,
+    CACHE_TIER_PM = 0,              // Persistent Memory (PM), highest priority
     CACHE_TIER_SSD,
-    CACHE_TIER_PFS,
+    CACHE_TIER_PFS,                 // Orion or Beegfs, lowest priority
     CACHE_TIER_UNKNOWN              // Unknown or not found
 } cache_tier_t;
 
@@ -44,7 +44,7 @@ typedef enum {
  * Metadata structure for each file being tracked by the caching policy.
  */
 typedef struct file_meta {
-    std::string   path;             // Original file path
+    std::string   path;                    // Original file path
     cache_tier_t  current_tier;     // Which tier the file is currently on
     uint64_t      size;             // File size in bytes
     uint64_t      access_count;     // Number of read accesses
