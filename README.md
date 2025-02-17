@@ -1,15 +1,20 @@
-# High Velocity AI Cache
+# High Velocity AI Cache (Developing)
 
-High Velocity AI Cache
+This repo is built on [NCSU ARC](https://arcb.csc.ncsu.edu/~mueller/cluster/arc/). Based on the work of [HVAC](https://ieeexplore.ieee.org/document/9912705). We add Persistent memory on the existing to make this work move forward.
+
+## Background
 
 
-Client Building on Summit - 
+## Compile and Run
+### Requirements
 
+### Compile
 1. Pull HVAC from Gitlab into $HVAC_SOURCE_DIR directory
 2. create build_dir
 3. cd build_dir
 4. source $HVAC_SOURCE_DIR/build.sh 
 
+### Run
 *NOTE - the Server component will not work in this build because the mercury build is based on a libfabric build that does not support VERBS
 
 
