@@ -68,3 +68,13 @@ export HVAC_SERVER_COUNT=YOUR_SERVER_COUNT (Single node: 1, Distributed: number 
 export HVAC_DATA_DIR=/YOUR_TRAINING_SET_PATH/
 
 ```
+
+2. Launch the server and client
+```
+mpirun -N 1 /home/ghu4/hvac/GHU_HVAC/build/src/hvac_server $HVAC_SERVER_COUNT &
+mpirun -N 1 /home/ghu4/hvac/benchmark/cosmoflow-benchmark-master/command_CF_HVAC.sh
+
+```
+
+## Future work
+- Work on Devdax instead of fsdax
