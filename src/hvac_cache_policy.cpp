@@ -176,6 +176,9 @@ void cache_policy_set_open_state(const std::string &path, bool is_open)
 
 }
 
+/*
+    Return the cache tier of the file
+*/
 cache_tier_t cache_policy_get_tier(const std::string &path)
 {
     std::lock_guard<std::mutex> lock(g_cacheMutex);
@@ -187,4 +190,106 @@ cache_tier_t cache_policy_get_tier(const std::string &path)
     }
 
     return g_fileMetaMap[path].current_tier;
+}
+
+/*
+    Checks PM usage and evicts (moves) files to SSD if needed.
+    Selects a victim file from PM based on some eviction policy 
+    (for now, lowest access count) and returns its path. 
+    This function only chooses a victim; it does not actually move the file.
+    TODO: Maybe Highest access count?
+    TODO: Better way to find the lowest access count 
+    TODO: --> 1. std:: min_element --> not well suited, g_fileMetaMap is always changes I guess
+    TODO: --> 2. std::priority_queue. Use a queue to maintain the smallest access count
+    TODO: --> 3. std::multimap. Use a multimap to maintain the smallest access count
+
+    * We don't only evict one file, but we can use a function call this one multi times to evict multiple files
+*/
+std::string cache_policy_select_victim_for_eviction()
+{
+    std::lock_guard<std::mutex> lock(g_cacheMutex);
+
+    std::string victim_path = "";
+    
+    for(auto &file : g_fileMetaMap)
+    {
+        if(file.second.current_tier == CACHE_TIER_FSDAX && !file.second.is_open)                // Only consider the files in PM and closed
+        {
+            if(victim_path == "")
+            {
+                victim_path = file.first;
+            } else if(file.second.access_count < g_fileMetaMap[victim_path].access_count)
+            {
+                victim_path = file.first;
+            }
+        }
+    }
+
+    return std::string(victim_path);
+}
+
+/*
+    Removes a file from the metadata tracking. For example, if the file is no longer needed,
+    or you want to clear the entry after eviction or unlinking the file.
+    There is a similar funcion in HVAC called: hvac_remove_fd(int fd), but that one is for the file descriptor
+*/
+void cache_policy_remove_file(const std::string &path)
+{
+    std::lock_guard<std::mutex> lock(g_cacheMutex);
+
+    if(g_fileMetaMap.find(path) == g_fileMetaMap.end())
+    {
+        L4C_WARN("hvac_cache_policy.cpp - cache_policy_remove_file - File not found in metadata: %s\n", path.c_str());
+        exit(-1);
+    }
+
+    if(g_fileMetaMap.find(path)->second.current_tier == CACHE_TIER_FSDAX)
+    {
+        g_fsdax_used_bytes -= g_fileMetaMap.find(path)->second.size;
+    } else if(g_fileMetaMap.find(path)->second.current_tier == CACHE_TIER_SSD)
+    {
+        g_ssd_used_bytes -= g_fileMetaMap.find(path)->second.size;
+    }
+
+    g_fileMetaMap.erase(path);
+}
+
+/*
+    Evicts a file from the PM tier if needed to make space for new files.
+    This function is called before adding a new file to the PM tier.
+    The function checks the PM usage and evicts the (a few) least accessed file if the PM is full.
+    The function returns the path of the victim file to evict, or an empty string if no eviction is needed.
+*/
+int cache_policy_evict_if_needed()
+{
+    std::lock_guard<std::mutex> lock(g_cacheMutex);
+    
+    if(g_fsdax_used_bytes <= g_fsdax_capacity_bytes)
+    {
+        return 0;                                                               // No eviction needed
+    }
+
+    // TODO: Maybe evict multiple files not just 1 file (I think it should be a percentage of the total files)
+    std::string victim_path = cache_policy_select_victim_for_eviction();        // Select the victim file to evict
+
+    // TODO: Maybe we can use a function to evict multiple files
+    if(victim_path == "")
+    {
+        L4C_WARN("hvac_cache_policy.cpp - cache_policy_evict_if_needed - No victim file found for eviction\n");
+        return -1;
+    }
+
+    // TODO: Maybe we can use a function to evict multiple files
+    cache_policy_remove_file(victim_path);                                     // Remove the victim file from the metadata
+
+    return 0;
+}
+
+
+void cache_policy_get_usage_bytes(uint64_t* used_pm_bytes, uint64_t* used_ssd_bytes)
+{
+    std::lock_guard<std::mutex> lock(g_cacheMutex);
+
+    *used_pm_bytes = g_fsdax_used_bytes;
+    *used_ssd_bytes = g_ssd_used_bytes;
 }
