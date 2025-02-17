@@ -1,6 +1,6 @@
 # High Velocity AI Cache (Developing)
 
-High Velocity AI Cache (HVAC) is a high-performance caching system designed for AI workloads, initially built on [summit](https://www.olcf.ornl.gov/olcf-resources/compute-systems/summit/). This repo is built on [NCSU ARC](https://arcb.csc.ncsu.edu/~mueller/cluster/arc/).  It extends the original [HVAC](https://ieeexplore.ieee.org/document/9912705) by integrating Persistent Memory (PMEM) to optimize data movement and storage efficiency. This work aims to push the boundaries of zero-copy storage and metadata-driven file management, enhancing AI training and inference workloads.
+High Velocity AI Cache (HVAC) is a high-performance caching system designed for AI workloads, initially built on [Summit](https://www.olcf.ornl.gov/olcf-resources/compute-systems/summit/). This repo is built on [NCSU ARC](https://arcb.csc.ncsu.edu/~mueller/cluster/arc/).  It extends the original [HVAC](https://ieeexplore.ieee.org/document/9912705) by integrating Persistent Memory (PMEM) to optimize data movement and storage efficiency. This work aims to push the boundaries of zero-copy storage and metadata-driven file management, enhancing AI training and inference workloads.
 
 ## Key Enhancements
 1. Persistent Memory Integration: Extends HVAC to support PMEM for faster, non-volatile caching.
