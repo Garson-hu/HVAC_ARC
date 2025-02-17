@@ -35,28 +35,36 @@ To build and run HVAC with PMEM support, ensure the following dependencies are i
 - Node-local Storage
 
 ### Compilation
-on ARC (Recommended Setup)
-1. Pull HVAC from Gitlab into $HVAC_SOURCE_DIR directory
-2. create build_dir
-3. cd build_dir
-4. source $HVAC_SOURCE_DIR/build.sh 
+#### on ARC (Recommended Setup)
+1. Load required modules:
+```
+module load log4c
+module load mercury
+module laod gcc12 (optional)
+```
+2. Clone HVAC source code:
+```
+git clone https://github.com/Garson-hu/HVAC_ARC.git
+```
+3. Go to build_dir
+```
+mkdir -p $HVAC_SOURCE_DIR/build && cd $HVAC_SOURCE_DIR/build
+```
+4. Run the build script
+``` 
+./build_arc.sh 
+```
+#### On other system (TBC)
 
 ### Run
-*NOTE - the Server component will not work in this build because the mercury build is based on a libfabric build that does not support VERBS
 
+1. Import all the required environment variables:
+```
+export BBPATH=/YOUR_NODE_LOCAL_STORAGE_PATH/
+export HVAC_LOG_LEVEL=800
+export RDMAV_FORK_SAFE=1
+export VERBS_LOG_LEVEL=4
+export HVAC_SERVER_COUNT=YOUR_SERVER_COUNT (Single node: 1, Distributed: number of nodes)
+export HVAC_DATA_DIR=/YOUR_TRAINING_SET_PATH/
 
-On other systems currently building this is a little bit challenging -
-
-1. Grab and build mercury
-2. Add the mercury package config to your pkg_config_path
-	/gpfs/alpine/stf008/scratch/cjzimmer/HVAC/mercury-install/lib/pkgconfig
-	[cjzimmer@login3.summit pkgconfig]$ export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$PWD
-
-3. module load log4c
-4. module load gcc/9.1.0 <- Specific for now
-5. export CC=/sw/summit/gcc/9.1.0-alpha+20190716/bin/gcc 
-6. cd into your build directory
-7. cmake ../HVAC
-8. Build should work - Currently hvac_server is wired up to listen on an ib port
-9. The client connection code is a work in progress
-
+```
