@@ -91,11 +91,10 @@ hvac_open_cb(const struct hg_cb_info *info)
     assert(info->ret == HG_SUCCESS);
 
     HG_Get_output(info->info.forward.handle, &out); 
-    if (DEBUG_HU)  L4C_INFO("DEBUG_HU: Open RPC Returned FD %d\n",out.ret_status);   
 
     // & map the local fd to the remote fd, which will be used by the RPC
     fd_redir_map[open_state->local_fd] = out.ret_status;
-    L4C_INFO("Open RPC Returned FD %d\n",out.ret_status);
+    // L4C_INFO("Open RPC Returned FD %d\n",out.ret_status);
     HG_Free_output(info->info.forward.handle, &out);
     HG_Destroy(info->info.forward.handle);
 
@@ -124,7 +123,7 @@ hvac_read_cb(const struct hg_cb_info *info)
     /* clean up resources consumed by this rpc */
     ret = HG_Bulk_free(hvac_rpc_state_p->bulk_handle);
 	assert(ret == HG_SUCCESS);
-	L4C_INFO("INFO: Freeing Bulk Handle"); //Does this deregister memory?
+	// L4C_INFO("INFO: Freeing Bulk Handle"); //Does this deregister memory?
 
 	ret = HG_Free_output(info->info.forward.handle, &out);
 	assert(ret == HG_SUCCESS);
@@ -197,7 +196,6 @@ void hvac_client_comm_gen_close_rpc(uint32_t svr_hash, int fd)
     hvac_close_in_t in;
     hg_handle_t handle; 
     int ret;
-    if (DEBUG_HU)  L4C_INFO("DEBUG_HU: RUN Sequence: Client 4\n");
     /* Get address */
     svr_addr = hvac_client_comm_lookup_addr(svr_hash);        
 
@@ -231,13 +229,13 @@ void hvac_client_comm_gen_open_rpc(uint32_t svr_hash, string path, int fd)
     /* svr_hash is calculated as: ((fd_map[fd]) % g_hvac_server_count) */
     svr_addr = hvac_client_comm_lookup_addr(svr_hash);    
 
-    L4C_INFO("DEBUG_HU: Calculated svr_hash: %u", svr_hash);
+    // L4C_INFO("DEBUG_HU: Calculated svr_hash: %u", svr_hash);
     // L4C_INFO("DEBUG_HU: g_hvac_server_count: %u", g_hvac_server_count);
-    if (fd_map.find(fd) != fd_map.end()) {
-        L4C_INFO("DEBUG_HU: fd_map[fd]: %s", fd_map[fd].c_str());
-    } else {
-        L4C_ERR("DEBUG_HU: fd_map does not contain fd: %d", fd);
-    }
+    // if (fd_map.find(fd) != fd_map.end()) {
+    //     L4C_INFO("DEBUG_HU: fd_map[fd]: %s", fd_map[fd].c_str());
+    // } else {
+    //     L4C_ERR("DEBUG_HU: fd_map does not contain fd: %d", fd);
+    // }
 
     /* Allocate args for callback pass through */
     hvac_open_state_p = (struct hvac_open_state *)malloc(sizeof(*hvac_open_state_p));
@@ -247,7 +245,6 @@ void hvac_client_comm_gen_open_rpc(uint32_t svr_hash, string path, int fd)
         & warp the function from HG_Create()    
     */    
     hvac_comm_create_handle(svr_addr, hvac_client_open_id, &handle);  
-    if (DEBUG_HU)  L4C_INFO("DEBUG_HU: path: hvac_comm_client.cpp: hvac_client_comm_gen_open_rpc() %s",path.c_str());
     in.path = (hg_string_t)malloc(strlen(path.c_str()) + 1 );
     sprintf(in.path,"%s",path.c_str());
     
@@ -364,7 +361,7 @@ void hvac_client_comm_gen_seek_rpc(uint32_t svr_hash, int fd, int offset, int wh
 //Find the address
 hg_addr_t hvac_client_comm_lookup_addr(int rank)
 {
-	L4C_INFO("Guangxing RANK %d", rank);
+	// L4C_INFO("Guangxing RANK %d", rank);
 	if (address_cache.find(rank) != address_cache.end())
 	{
         hg_addr_t target_server;
@@ -387,7 +384,7 @@ hg_addr_t hvac_client_comm_lookup_addr(int rank)
 	while (fscanf(na_config, "%d %s\n",&svr_rank, svr_str) == 2)
 	{
 		if (svr_rank == rank){
-			L4C_INFO("Connecting to %s %d\n", svr_str, svr_rank);            
+			// L4C_INFO("Connecting to %s %d\n", svr_str, svr_rank);            
 			svr_found = true;
             break;
 		}

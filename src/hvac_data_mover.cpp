@@ -55,7 +55,6 @@ void *hvac_data_mover_fn(void *args)
                 fprintf(stderr, "%s dir creation failed\n", newdir);
             
             string dirpath = newdir;
-            if (DEBUG_HU)  L4C_INFO("DEBUG_HU: dirpath: %s\n", dirpath.c_str());
             string filename = dirpath + string("/") + fs::path(local_list.front().c_str()).filename().string();
             try{
                 

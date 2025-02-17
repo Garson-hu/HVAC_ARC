@@ -75,7 +75,6 @@ static void __attribute((destructor)) hvac_client_shutdown()
 
 bool hvac_track_file(const char *path, int flags, int fd)
 {     
-	if (DEBUG_HU) L4C_INFO("DEBUG_HU: Tracking file original path (hvac_client.cpp: hvac_track_file()) %s\n",path);
 	
 	if (strstr(path, ".ports.cfg.") != NULL)
 	{
@@ -93,7 +92,6 @@ bool hvac_track_file(const char *path, int flags, int fd)
 
 	try {
 		std::string ppath = std::filesystem::canonical(path).parent_path();
-		if (DEBUG_HU) L4C_INFO("DEBUG_HU: Tracking file ppath (hvac_client.cpp: hvac_track_file()) %s\n",ppath);
 
 		// Check if current file exists in HVAC_DATA_DIR
 		if (hvac_data_dir != NULL)
@@ -103,9 +101,9 @@ bool hvac_track_file(const char *path, int flags, int fd)
 			if (ppath.find(test) != std::string::npos)
 			{
 				//L4C_FATAL("Got a file want a stack trace");
-				L4C_INFO("Tracking used HV_DD file path %s",path);
-				L4C_INFO("Tracking used HV_DD file ppath %s",ppath.c_str());
-				L4C_INFO("Tracking used HV_DD file canonical of path %s",std::filesystem::canonical(path).c_str());
+				// L4C_INFO("Tracking used HV_DD file path %s",path);
+				// L4C_INFO("Tracking used HV_DD file ppath %s",ppath.c_str());
+				// L4C_INFO("Tracking used HV_DD file canonical of path %s",std::filesystem::canonical(path).c_str());
 				fd_map[fd] = std::filesystem::canonical(path);
 				tracked = true;
 			}		
@@ -113,9 +111,9 @@ bool hvac_track_file(const char *path, int flags, int fd)
 		// & If not set the hvac_data_dir (such like test file)
 		else if (ppath == std::filesystem::current_path()) 
 		{     
-			L4C_INFO("Tracking used CWD file path %s",path);
-			L4C_INFO("Tracking used CWD file ppath %s",ppath.c_str());
-			L4C_INFO("Tracking used CWD file canonical of path %s",std::filesystem::canonical(path).c_str());
+			// L4C_INFO("Tracking used CWD file path %s",path);
+			// L4C_INFO("Tracking used CWD file ppath %s",ppath.c_str());
+			// L4C_INFO("Tracking used CWD file canonical of path %s",std::filesystem::canonical(path).c_str());
 			fd_map[fd] = std::filesystem::canonical(path);
 			tracked = true;
 		}
@@ -136,7 +134,7 @@ bool hvac_track_file(const char *path, int flags, int fd)
 		// ! Decide which server should we sent data
 		// ! Should change here if we have multi server
 		int host = std::hash<std::string>{}(fd_map[fd]) % g_hvac_server_count;	
-		L4C_INFO("Remote open - Host %d", host);
+		// L4C_INFO("Remote open - Host %d", host);
 		hvac_client_comm_gen_open_rpc(host, fd_map[fd], fd);
 
 		// * Wait for 
@@ -161,7 +159,7 @@ ssize_t hvac_remote_read(int fd, void *buf, size_t count)
 	ssize_t bytes_read = -1;
 	if (hvac_file_tracked(fd)){
 		int host = std::hash<std::string>{}(fd_map[fd]) % g_hvac_server_count;	
-		L4C_INFO("Remote read - Host %d", host);		
+		// L4C_INFO("Remote read - Host %d", host);		
 		hvac_client_comm_gen_read_rpc(host, fd, buf, count, -1);
 		bytes_read = hvac_read_block();   		
 		return bytes_read;
@@ -184,7 +182,7 @@ ssize_t hvac_remote_pread(int fd, void *buf, size_t count, off_t offset)
 	ssize_t bytes_read = -1;
 	if (hvac_file_tracked(fd) && fd_redir_map[fd] != 0){
 		int host = std::hash<std::string>{}(fd_map[fd]) % g_hvac_server_count;	
-		L4C_INFO("Remote pread - Host %d", host);		
+		// L4C_INFO("Remote pread - Host %d", host);		
 		hvac_client_comm_gen_read_rpc(host, fd, buf, count, offset);
 		bytes_read = hvac_read_block();   	
 	}
@@ -202,7 +200,7 @@ ssize_t hvac_remote_lseek(int fd, int offset, int whence)
 	ssize_t bytes_read = -1;
 	if (hvac_file_tracked(fd)){
 		int host = std::hash<std::string>{}(fd_map[fd]) % g_hvac_server_count;	
-		L4C_INFO("Remote seek - Host %d", host);		
+		// L4C_INFO("Remote seek - Host %d", host);		
 		hvac_client_comm_gen_seek_rpc(host, fd, offset, whence);
 		bytes_read = hvac_seek_block();   		
 		return bytes_read;

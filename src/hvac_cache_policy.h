@@ -34,7 +34,7 @@ extern "C" {
  * Indicates the storage tier where a file resides.
  */
 typedef enum {
-    CACHE_TIER_PM = 0,              // Persistent Memory (PM), highest priority
+    CACHE_TIER_FSDAX = 0,              // Persistent Memory (fsdax), highest priority
     CACHE_TIER_SSD,
     CACHE_TIER_PFS,                 // Orion or Beegfs, lowest priority
     CACHE_TIER_UNKNOWN              // Unknown or not found
@@ -44,7 +44,7 @@ typedef enum {
  * Metadata structure for each file being tracked by the caching policy.
  */
 typedef struct file_meta {
-    std::string   path;                    // Original file path
+    std::string   path;             // Original file path
     cache_tier_t  current_tier;     // Which tier the file is currently on
     uint64_t      size;             // File size in bytes
     uint64_t      access_count;     // Number of read accesses
@@ -55,18 +55,9 @@ typedef struct file_meta {
 /**
  * Initializes the cache policy module, sets up data structures, and configures
  * capacity for PM or SSD if necessary.
- *
- * @param pm_path               Path or mount point for the PM tier
- * @param ssd_path              Path or mount point for the SSD tier
- * @param pm_capacity_bytes     Total capacity of PM in bytes
- * @param ssd_capacity_bytes    Total capacity of SSD in bytes
- *
  * @return 0 on success, non-zero otherwise
  */
-int cache_policy_init(const char* pm_path,
-                      const char* ssd_path,
-                      uint64_t pm_capacity_bytes,
-                      uint64_t ssd_capacity_bytes);
+int cache_policy_init();
 
 /**
  * Finalizes the cache policy module and frees resources.
@@ -79,14 +70,14 @@ void cache_policy_finalize();
  * @param path        The original file path
  * @param size_bytes  File size in bytes
  */
-void cache_policy_add_file(const char* path, uint64_t size_bytes);
+void cache_policy_add_file(const std::string &path, uint64_t size_bytes);
 
 /**
  * Updates the access count for a file, typically on read or any other access.
  *
  * @param path  The original file path
  */
-void cache_policy_update_access(const char* path);
+void cache_policy_update_access(const std::string &path);
 
 /**
  * Updates the tier of a file (e.g., from PM to SSD), used after moving the file.
@@ -94,7 +85,7 @@ void cache_policy_update_access(const char* path);
  * @param path         The original file path
  * @param new_tier     The new tier where the file resides
  */
-void cache_policy_update_tier(const char* path, cache_tier_t new_tier);
+void cache_policy_update_tier(const std::string &path, cache_tier_t new_tier);
 
 /**
  * Marks a file as open or closed in the metadata.
@@ -102,7 +93,7 @@ void cache_policy_update_tier(const char* path, cache_tier_t new_tier);
  * @param path    The original file path
  * @param is_open true if file is now open, false if closed
  */
-void cache_policy_set_open_state(const char* path, bool is_open);
+void cache_policy_set_open_state(const std::string &path, bool is_open);
 
 /**
  * Retrieves the current tier of a given file.
@@ -110,10 +101,10 @@ void cache_policy_set_open_state(const char* path, bool is_open);
  * @param path The original file path
  * @return     The tier (PM/SSD/PFS), or CACHE_TIER_UNKNOWN if not found
  */
-cache_tier_t cache_policy_get_tier(const char* path);
+cache_tier_t cache_policy_get_tier(const std::string &path);
 
 /**
- * Checks whether PM capacity is exceeded; if so, selects a victim file
+ * Checks whether PM capacity is exceeded/or near exceed; if so, selects a victim file
  * from PM based on some eviction policy (for now, lowest access count) // TODO: Maybe Highest access count?
  * and returns its path. 
  *
@@ -129,7 +120,7 @@ std::string cache_policy_select_victim_for_eviction();
  *
  * @param path The file path
  */
-void cache_policy_remove_file(const char* path);
+void cache_policy_remove_file(const std::string &path);
 
 /**
  * Checks PM usage and evicts (moves) files to SSD if needed.

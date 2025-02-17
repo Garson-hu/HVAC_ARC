@@ -121,15 +121,16 @@ int WRAP_DECL(open)(const char *pathname, int flags, ...)
 
 	/* For now pass the open to GPFS  - I think the open is cheap
 	 * possibly asychronous.
-	 * If this impedes performance we can investigate a cheap way of generating
-	 * an FD
+	 * If this impedes performance we can investigate a cheap way of generating an FD
+	 TODO: should we pass the open to GPFS?
 	 */
 	ret = __real_open(pathname, flags, mode);
 
-	// C++ code determines whether to track
+	// Determines whether to track
 	if (ret != -1){
 		if (hvac_track_file(pathname, flags, ret))
 		{	
+			// ! Begin open delta time
 			clock_gettime(CLOCK_MONOTONIC, &end);
 			double delta;
 			if(end.tv_nsec > start.tv_nsec) {
@@ -141,11 +142,13 @@ int WRAP_DECL(open)(const char *pathname, int flags, ...)
 			if(verbose)
 				printf("DEBUG_HU: HVAC: Tracked Open fd %d from pathname %s, delta: %.8f\n", ret, pathname, delta);
 			fflush(stdout);
-			pread_stats.count++;
-    		pread_stats.total_time += delta;
+			open_stats.count++;
+    		open_stats.total_time += delta;
+			// ! End open delta time
 			// L4C_INFO("Open: Tracking File %s",pathname);
 		}else{
 			// ret = __real_open(pathname, flags, mode);
+			// ! Begin open delta time
 			clock_gettime(CLOCK_MONOTONIC, &end);
 			double delta;
 			if(end.tv_nsec > start.tv_nsec) {
@@ -165,6 +168,7 @@ int WRAP_DECL(open)(const char *pathname, int flags, ...)
 				open_system_stats.count++;
 				open_system_stats.total_time += delta;
         	}
+			// ! End open delta time
 		}
 	}
 	
@@ -334,9 +338,18 @@ ssize_t WRAP_DECL(pread)(int fd, void *buf, size_t count, off_t offset)
 	if (path)
 	{             
    
-		// L4C_INFO("pread to tracked file %s",path);
+		L4C_INFO("pread to tracked file %s",path);
 		ret = hvac_remote_pread(fd, buf, count, offset);
-		ret = __real_pread(fd,buf,count,offset);
+		// TODO: before donʻt have this if condition on ARC
+		// TODO: original: ret = hvac_remote_pread(fd, buf, count, offset);
+		// TODO: original: ret = __real_pread(fd,buf,count,offset);
+		if (ret == -1)
+		{
+			ret = __real_pread(fd,buf,count,offset);
+			L4C_INFO("Pread to file %s of should be hvac_remote_read but actually _read_read", path);
+		}
+
+		// ! Begin pread delta time
 		clock_gettime(CLOCK_MONOTONIC, &end);
 		double delta;
         if(end.tv_nsec > start.tv_nsec) {
@@ -350,11 +363,15 @@ ssize_t WRAP_DECL(pread)(int fd, void *buf, size_t count, off_t offset)
 		fflush(stdout);	
 		pread_stats.count++;
     	pread_stats.total_time += delta;
+		// ! End pread delta time
+
 	}
 	else
 	{
 
 		ret = __real_pread(fd,buf,count,offset);
+
+		// ! Begin pread delta time
 		clock_gettime(CLOCK_MONOTONIC, &end);
 		double delta;
         if(end.tv_nsec > start.tv_nsec) {
@@ -368,6 +385,7 @@ ssize_t WRAP_DECL(pread)(int fd, void *buf, size_t count, off_t offset)
 		fflush(stdout);	
 		pread_stats.count++;
     	pread_stats.total_time += delta;
+		// ! End pread delta time
 	}
 	
 

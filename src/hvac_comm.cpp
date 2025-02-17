@@ -15,7 +15,8 @@ extern "C" {
 #include <unistd.h>
 }
 
-
+#include <sys/file.h>
+#include <unistd.h>
 #include <string>
 #include <iostream>
 #include <map>	
@@ -27,8 +28,6 @@ static int hvac_progress_thread_shutdown_flags = 0;
 static int hvac_server_rank = -1;
 static int server_rank = -1;
 
-// ! .ports.cfg.<JOB_ID> write lock
-pthread_mutex_t file_write_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /* struct used to carry state of overall operation across callbacks */
 struct hvac_rpc_state {
@@ -45,6 +44,16 @@ struct hvac_rpc_state {
 void hvac_init_comm(hg_bool_t listen)
 {
 
+    // L4C_INFO("DEBUG_HU: SLURM_JOBID=%s, SLURM_PROCID=%s, SLURM_NODEID=%s, SLURM_NTASKS=%s, SLURM_JOB_NAME=%s, SLURM_JOB_NODELIST=%s",
+    // getenv("SLURM_JOBID") ? getenv("SLURM_JOBID") : "NULL",
+    // getenv("SLURM_PROCID") ? getenv("SLURM_PROCID") : "NULL",
+    // getenv("SLURM_NODEID") ? getenv("SLURM_NODEID") : "NULL",
+    // getenv("SLURM_NTASKS") ? getenv("SLURM_NTASKS") : "NULL",
+    // getenv("SLURM_JOB_NAME") ? getenv("SLURM_JOB_NAME") : "NULL",
+    // getenv("SLURM_JOB_NODELIST") ? getenv("SLURM_JOB_NODELIST") : "NULL");
+
+    // L4C_INFO("OMPI_COMM_WORLD_RANK=%s\n", getenv("OMPI_COMM_WORLD_RANK") ? getenv("OMPI_COMM_WORLD_RANK") : "NULL");
+
 	const char *info_string = "ofi+verbs;ofi_rxm://";  
     /* 	int *pid_server = NULL;
         PMI_Get_rank(pid_server);
@@ -58,14 +67,15 @@ void hvac_init_comm(hg_bool_t listen)
             L4C_INFO("Exported PMIX_RANK: %s \n", rankstr_str.c_str());
             }
     */
-    char *rank_str = getenv("SLURM_PROCID"); // Get the rank of the server 
+    // OMPI_COMM_WORLD_RANK
+    char *rank_str = getenv("OMPI_COMM_WORLD_RANK"); // Get the rank of the server 
     if (rank_str == NULL) {
         L4C_FATAL("SLURM_PROCID is not set. Please ensure the script is run through SLURM.");
         exit(EXIT_FAILURE);
     }
 	server_rank = atoi(rank_str);
-    L4C_INFO("PMIX_RANK: %s Server Rank: %d \n", rank_str, server_rank);
-	// L4C_INFO("Server Rank: %d \n", server_rank);
+
+    // L4C_INFO("PMIX_RANK: %s Server Rank: %d \n", rank_str, server_rank);
 
 	pthread_t hvac_progress_tid;
 
@@ -154,43 +164,142 @@ void *hvac_progress_fn(void *args)
    Should the servers be started with an argument regarding the number of servers? 
    ! If I need to create two servers, I think that I need to post all of them's addresses in here  for now
    */
-void hvac_comm_list_addr()
-{
-    pthread_mutex_lock(&file_write_mutex);
+// void hvac_comm_list_addr()
+// {
 
-	char self_addr_string[PATH_MAX];
-	char filename[PATH_MAX];
-        hg_addr_t self_addr;
-	FILE *na_config = NULL;
-	hg_size_t self_addr_string_size = PATH_MAX;
-    //	char *stepid = getenv("PMIX_NAMESPACE");
+// 	char self_addr_string[PATH_MAX];
+// 	char filename[PATH_MAX];
+//         hg_addr_t self_addr;
+// 	FILE *na_config = NULL;
+// 	hg_size_t self_addr_string_size = PATH_MAX;
+//     //	char *stepid = getenv("PMIX_NAMESPACE");
 
-	char *jobid =  getenv("SLURM_JOBID");
-    L4C_INFO("JOB_ID: %s\n", jobid); 
+// 	char *jobid =  getenv("SLURM_JOBID");
+//     L4C_INFO("JOB_ID: %s\n", jobid); 
 
-	sprintf(filename, "./.ports.cfg.%s", jobid);
-	/* Get self addr to tell client about */
+// 	sprintf(filename, "./.ports.cfg.%s", jobid);
+// 	/* Get self addr to tell client about */
+//     HG_Addr_self(hg_class, &self_addr);
+//     HG_Addr_to_string(hg_class, self_addr_string, &self_addr_string_size, self_addr);
+//     HG_Addr_free(hg_class, self_addr);
+    
+//     /* Write addr to a file */
+//     na_config = fopen(filename, "a+");
+//     if (!na_config) {
+//         L4C_ERR("Could not open config file from: %s\n", filename);
+//         exit(0);
+//     }
+//     L4C_INFO("Server Rank: %d, Address: %s", hvac_server_rank, self_addr_string);
+//     // &  Write the server's rank and address to a configuration file 
+//     // &  (e.g. . /.ports.cfg.<JOB_ID>) for (CLIENTS) to find and connect to.
+//     fprintf(na_config, "%d %s\n", hvac_server_rank, self_addr_string);
+//     fclose(na_config);
+
+// }
+
+// !File lock version
+void hvac_comm_list_addr() {
+
+    char self_addr_string[PATH_MAX];
+    char filename[PATH_MAX];
+
+    hg_addr_t self_addr;
+    hg_size_t self_addr_string_size = PATH_MAX;
+
+    char *jobid =  getenv("SLURM_JOBID");
+    // L4C_INFO("JOB_ID: %s\n", jobid); 
+    sprintf(filename, "./.ports.cfg.%s", jobid);
+
+
+    /* Get self addr to tell client about */
     HG_Addr_self(hg_class, &self_addr);
     HG_Addr_to_string(hg_class, self_addr_string, &self_addr_string_size, self_addr);
     HG_Addr_free(hg_class, self_addr);
-    
-    /* Write addr to a file */
-    na_config = fopen(filename, "a+");
+
+    FILE *na_config = fopen(filename, "a+");
     if (!na_config) {
-        L4C_ERR("Could not open config file from: %s\n", filename);
-        pthread_mutex_unlock(&file_write_mutex);
+        L4C_ERR("Could not open config file: %s", filename);
         exit(0);
     }
-    if (DEBUG_HU)  L4C_INFO("DEBUG_HU: self_addr_string: %s\n", self_addr_string);
-    L4C_INFO("Server Rank: %d, Address: %s", hvac_server_rank, self_addr_string);
-    // &  Write the server's rank and address to a configuration file 
-    // &  (e.g. . /.ports.cfg.<JOB_ID>) for (CLIENTS) to find and connect to.
-    fprintf(na_config, "%d %s\n", hvac_server_rank, self_addr_string);
-    fclose(na_config);
 
-    pthread_mutex_unlock(&file_write_mutex);
+    // Obtain a lock on the file
+    int fd = fileno(na_config);
+    if (flock(fd, LOCK_EX) != 0) {  // Exclusive lock
+        L4C_ERR("Failed to lock the file: %s", strerror(errno));
+        fclose(na_config);
+        exit(EXIT_FAILURE);
+    }
+
+    // Write server rank and address to the file
+    fprintf(na_config, "%d %s\n", hvac_server_rank, self_addr_string);
+    fflush(na_config);
+    // Release the lock
+    if (flock(fd, LOCK_UN) != 0) {
+        L4C_ERR("Failed to unlock the file: %s", strerror(errno));
+    }
+    // L4C_INFO("DEBUG_HU: Node writing address Rank %d, Address %s", hvac_server_rank, self_addr_string);
+    fclose(na_config);
 }
 
+// ! Serilization writing to file
+// void hvac_comm_list_addr() {
+
+//     char self_addr_string[PATH_MAX];
+//     char filename[PATH_MAX];
+
+//     hg_addr_t self_addr;
+//     hg_size_t self_addr_string_size = PATH_MAX;
+
+//     char *jobid = getenv("SLURM_JOBID");
+//     L4C_INFO("JOB_ID: %s\n", jobid); 
+
+//     sprintf(filename, "./.ports.cfg.%s", jobid);
+
+//     /* Get self addr to tell client about */
+//     HG_Addr_self(hg_class, &self_addr);
+//     HG_Addr_to_string(hg_class, self_addr_string, &self_addr_string_size, self_addr);
+//     HG_Addr_free(hg_class, self_addr);
+//     while (1) {
+//         FILE *na_config = fopen(filename, "a+");
+//         if (!na_config) {
+//             L4C_ERR("Could not open config file for reading: %s", filename);
+//             exit(EXIT_FAILURE);
+//         }
+
+//         // Count the current number of lines in the file
+//         int line_count = 0;
+//         char buffer[PATH_MAX];
+//         while (fgets(buffer, sizeof(buffer), na_config)) {
+//             line_count++;
+//         }
+//         fclose(na_config);
+
+//         // Check if it's this rank's turn to write
+//         if (line_count == hvac_server_rank) {
+//             na_config = fopen(filename, "a");
+//             if (!na_config) {
+//                 L4C_ERR("Could not open config file for appending: %s", filename);
+//                 exit(EXIT_FAILURE);
+//             }
+
+//             // Write server rank and address to the file
+//             fprintf(na_config, "%d %s\n", hvac_server_rank, self_addr_string);
+//             L4C_INFO("DEBUG_HU: Node writing address Rank %d, Address %s", hvac_server_rank, self_addr_string);
+//             if(line_count == 3) {
+//                 fprintf(na_config, "%d %s\n", hvac_server_rank, self_addr_string);
+//                 L4C_INFO("DEBUG_HU: Node writing address Rank %d, Address %s", hvac_server_rank, self_addr_string);
+//                 fclose(na_config);
+//                 break;
+//             }
+
+//             fclose(na_config);
+//             break;
+//         } else {
+//             // Wait and retry if it's not this rank's turn
+//             sleep(1);
+//         }
+//     }
+// }
 
 
 /* callback triggered upon completion of bulk transfer */
@@ -208,7 +317,7 @@ hvac_rpc_handler_bulk_cb(const struct hg_cb_info *info)
     assert(ret == HG_SUCCESS);        
 
     HG_Bulk_free(hvac_rpc_state_p->bulk_handle);
-    L4C_INFO("Info Server: Freeing Bulk Handle\n");
+    // L4C_INFO("Info Server: Freeing Bulk Handle\n");
     HG_Destroy(hvac_rpc_state_p->handle);
     free(hvac_rpc_state_p->buffer);
     free(hvac_rpc_state_p);
@@ -247,11 +356,11 @@ hvac_rpc_handler(hg_handle_t handle)
 
     if (hvac_rpc_state_p->in.offset == -1){
         readbytes = read(hvac_rpc_state_p->in.accessfd, hvac_rpc_state_p->buffer, hvac_rpc_state_p->size);
-        L4C_DEBUG("Server Rank %d : Read %ld bytes from file %s", server_rank,readbytes, fd_to_path[hvac_rpc_state_p->in.accessfd].c_str());
+        // L4C_DEBUG("Server Rank %d : Read %ld bytes from file %s", server_rank,readbytes, fd_to_path[hvac_rpc_state_p->in.accessfd].c_str());
     }else
     {
         readbytes = pread(hvac_rpc_state_p->in.accessfd, hvac_rpc_state_p->buffer, hvac_rpc_state_p->size, hvac_rpc_state_p->in.offset);
-        L4C_DEBUG("Server Rank %d : PRead %ld bytes from file %s at offset %ld", server_rank,readbytes, fd_to_path[hvac_rpc_state_p->in.accessfd].c_str(),hvac_rpc_state_p->in.offset );
+        // L4C_DEBUG("Server Rank %d : PRead %ld bytes from file %s at offset %ld", server_rank,readbytes, fd_to_path[hvac_rpc_state_p->in.accessfd].c_str(),hvac_rpc_state_p->in.offset );
     }
 
     //Reduce size of transfer to what was actually read 
@@ -293,15 +402,19 @@ hvac_open_rpc_handler(hg_handle_t handle)
     assert(ret == 0);
 
     string redir_path = in.path;
-
+    if (path_cache_map.find(redir_path) == path_cache_map.end())
+    {
+        L4C_INFO("Redirected Path before cache %s", redir_path.c_str());
+    }
     // path_cache_map in hvac_data_mover_internal.h 
     // extern map<string, string> path_cache_map;
     if (path_cache_map.find(redir_path) != path_cache_map.end()) // & If the file is already in cache
     {
         L4C_INFO("Server Rank %d : Successful Redirection %s to %s", server_rank, redir_path.c_str(), path_cache_map[redir_path].c_str());
         redir_path = path_cache_map[redir_path];
+        L4C_INFO("Redirected Path After cache %s", redir_path.c_str());
     }
-    L4C_INFO("Server Rank %d : Successful Open %s", server_rank, in.path);    
+    // L4C_INFO("Server Rank %d : Successful Open %s", server_rank, in.path);    
     out.ret_status = open(redir_path.c_str(),O_RDONLY);  
     fd_to_path[out.ret_status] = in.path;  
     HG_Respond(handle,NULL,NULL,&out);
@@ -317,7 +430,7 @@ hvac_close_rpc_handler(hg_handle_t handle)
     hvac_close_in_t in;
     int ret = HG_Get_input(handle, &in);
     assert(ret == HG_SUCCESS);
-    L4C_INFO("Closing File %d\n",in.fd);
+    // L4C_INFO("Closing File %d\n",in.fd);
     ret = close(in.fd);
     assert(ret == 0);
 
@@ -327,7 +440,7 @@ hvac_close_rpc_handler(hg_handle_t handle)
     // Signal to the data mover to copy the file
     if (path_cache_map.find(fd_to_path[in.fd]) == path_cache_map.end()) // & if the path is not in the cache
     {
-        L4C_INFO("Caching %s",fd_to_path[in.fd].c_str());
+        // L4C_INFO("Caching %s",fd_to_path[in.fd].c_str());
         pthread_mutex_lock(&data_mutex);
         pthread_cond_signal(&data_cond);
         data_queue.push(fd_to_path[in.fd]);

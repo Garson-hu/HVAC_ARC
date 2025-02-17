@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-export BBPATH=/mnt/local
+# export BBPATH=/mnt/local
 export HVAC_SERVER_COUNT=1
 export HVAC_LOG_LEVEL=800
 export RDMAV_FORK_SAFE=1
@@ -15,7 +15,17 @@ export CPLUS_INCLUDE_PATH=/home/ghu4/hvac/rlibrary/mercury2.0.1/include:$CPLUS_I
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/home/ghu4/hvac/rlibrary/mercury2.0.1/lib/pkgconfig
 
 
-cmake -DCMAKE_C_COMPILER=/opt/ohpc/pub/compiler/gcc/9.4.0/bin/gcc -DCMAKE_CXX_COMPILER=/opt/ohpc/pub/compiler/gcc/9.4.0/bin/g++ .. -DDEBUG_HU=0
+# cmake -DCMAKE_C_COMPILER=/opt/ohpc/pub/compiler/gcc/9.4.0/bin/gcc -DCMAKE_CXX_COMPILER=/opt/ohpc/pub/compiler/gcc/9.4.0/bin/g++ .. -DDEBUG_HU=0
+
+cmake \
+  -DCMAKE_C_COMPILER=/opt/ohpc/pub/compiler/gcc/9.4.0/bin/gcc \
+  -DCMAKE_CXX_COMPILER=/opt/ohpc/pub/compiler/gcc/9.4.0/bin/g++ \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_C_FLAGS_RELEASE="-O3" \
+  -DCMAKE_CXX_FLAGS_RELEASE="-O3" \
+  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+  .. -DDEBUG_HU=0
+
 
 make -j4
 
