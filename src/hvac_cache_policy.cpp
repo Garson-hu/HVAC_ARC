@@ -1,18 +1,23 @@
 #include "hvac_cache_policy.h"
-#include <iostream>
-#include <stdio.h>
 #include "hvac_logging.h"
+
+#include <iostream>
+#include <mutex>
+#include <map>
+
+#include <stdio.h>
+#include <stdint.h>
 
 
 std::map<std::string, file_meta_t> g_fileMetaMap;       // Map of file paths to metadata
 
-unit_64_t g_fsdax_capacity_bytes = 0;                   // Total capacity of PM in bytes        //TODO: Maybe a threshold for PM and SSD (80%?), not the total capacity
-unit_64_t g_ssd_capacity_bytes = 0;                     // Total capacity of SSD in bytes
+uint64_t g_fsdax_capacity_bytes = 0;                   // Total capacity of PM in bytes        //TODO: Maybe a threshold for PM and SSD (80%?), not the total capacity
+uint64_t g_ssd_capacity_bytes = 0;                     // Total capacity of SSD in bytes
 std::string g_fsdax_path;                               // Path or mount point for the PM tier
 std::string g_ssd_path;                                 // Path or mount point for the SSD tier
 
-unit_64_t g_fsdax_used_bytes = 0;                       // Used capacity of PM in bytes
-unit_64_t g_ssd_used_bytes = 0;                         // Used capacity of SSD in bytes
+uint64_t g_fsdax_used_bytes = 0;                       // Used capacity of PM in bytes
+uint64_t g_ssd_used_bytes = 0;                         // Used capacity of SSD in bytes
 
 std::mutex g_cacheMutex;                                // Mutex for thread safety
 
@@ -40,12 +45,12 @@ int cache_policy_init()
 /*
     Registers a file in the caching metadata, typically called during open or creation.
 */
-void cache_policy_add_file(const std:string &path, uint64_t size_bytes)
+void cache_policy_add_file(const std::string &path, uint64_t size_bytes)
 {
 
     std::lock_guard<std::mutex> lock(g_cacheMutex);                         // Lock the mutex for thread safety since we are modifying the metadata map
 
-    if(g_fileMetaMap.find(path) != map.end())
+    if(g_fileMetaMap.find(path) != g_fileMetaMap.end())
     {                                                                       // means that this file ready exists
         return;
     }

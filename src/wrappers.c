@@ -40,6 +40,7 @@ struct Stats {
     double total_time;   // 总运行时间
 };
 
+struct Stats open_stats = {0, 0.0};
 struct Stats open_data_stats = {0, 0.0};
 struct Stats open_system_stats = {0, 0.0};
 struct Stats fopen_stats = {0, 0.0};
@@ -340,6 +341,7 @@ ssize_t WRAP_DECL(pread)(int fd, void *buf, size_t count, off_t offset)
    
 		L4C_INFO("pread to tracked file %s",path);
 		ret = hvac_remote_pread(fd, buf, count, offset);
+
 		// TODO: before donʻt have this if condition on ARC
 		// TODO: original: ret = hvac_remote_pread(fd, buf, count, offset);
 		// TODO: original: ret = __real_pread(fd,buf,count,offset);
@@ -479,6 +481,7 @@ ssize_t WRAP_DECL(pread)(int fd, void *buf, size_t count, off_t offset)
             return;
         }
 
+        fprintf(file, "Open Stats: count=%zu, total_time=%.6f\n", open_stats.count, open_stats.total_time);
         fprintf(file, "Open Data Stats: count=%zu, total_time=%.6f\n", open_data_stats.count, open_data_stats.total_time);
         fprintf(file, "Open System Stats: count=%zu, total_time=%.6f\n", open_system_stats.count, open_system_stats.total_time);
         fprintf(file, "Open total_time=%.6f\n", (open_data_stats.total_time + open_system_stats.total_time));
