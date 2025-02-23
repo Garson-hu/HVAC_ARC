@@ -16,7 +16,7 @@ The system operates with a client-server architecture, where:
 
 - **Clients** intercept file system calls (open, read, write, close) and redirect them to PMEM when applicable.
 - **Metadata Management** ensures seamless file access and maintains mapping between logical and physical storage locations.
-- **Server** (Optional for Distributed Mode) coordinates metadata and data consistency across multiple nodes.
+- **Server** coordinates metadata and data consistency across multiple nodes.
 
 
 ## Compile and Run
