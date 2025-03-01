@@ -32,8 +32,25 @@ namespace hvac {
  *
  * @return The number of bytes read on success, or -1 on failure.
  */
-int ms_read(int fd, void* buf, size_t count, off_t offset);
+ssize_t ms_read(int fd, void* buf, size_t count, off_t offset);
+
+
+/**
+ * Returns the rank of the PM server.
+ *
+ * @return The rank of the PM server.
+ */
+int get_PM_rank();
+
+/**
+ * Returns the rank of the SSD server.
+ * TODO should I exclude the PM server?
+ * @return The rank of the SSD server.
+ */
+int get_SSD_rank();
 
 } // namespace hvac
+
+
 
 #endif // HVAC_MULTI_SOURCE_READ_HPP
