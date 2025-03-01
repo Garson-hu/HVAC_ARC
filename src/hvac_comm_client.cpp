@@ -33,6 +33,7 @@ extern std::map<int, int > fd_redir_map;
 extern std::map<int, std::string > fd_map;
 extern "C" bool hvac_file_tracked(int fd);
 extern "C" bool hvac_track_file(const char* path, int flags, int fd);
+
 /* struct used to carry state of overall operation across callbacks */
 struct hvac_rpc_state {
     uint32_t value;
@@ -216,6 +217,12 @@ void hvac_client_comm_gen_close_rpc(uint32_t svr_hash, int fd)
 
 }
 
+/*
+*    This function is used to open a file on the remote server
+*    @param svr_hash: The hash of the server to connect to
+*    @param path: The original path of the file to open
+*    @param fd: The local file descriptor
+*/
 void hvac_client_comm_gen_open_rpc(uint32_t svr_hash, string path, int fd)
 {
     hg_addr_t svr_addr;
@@ -228,14 +235,6 @@ void hvac_client_comm_gen_open_rpc(uint32_t svr_hash, string path, int fd)
     /* Get address according to server hash  */
     /* svr_hash is calculated as: ((fd_map[fd]) % g_hvac_server_count) */
     svr_addr = hvac_client_comm_lookup_addr(svr_hash);    
-
-    // L4C_INFO("DEBUG_HU: Calculated svr_hash: %u", svr_hash);
-    // L4C_INFO("DEBUG_HU: g_hvac_server_count: %u", g_hvac_server_count);
-    // if (fd_map.find(fd) != fd_map.end()) {
-    //     L4C_INFO("DEBUG_HU: fd_map[fd]: %s", fd_map[fd].c_str());
-    // } else {
-    //     L4C_ERR("DEBUG_HU: fd_map does not contain fd: %d", fd);
-    // }
 
     /* Allocate args for callback pass through */
     hvac_open_state_p = (struct hvac_open_state *)malloc(sizeof(*hvac_open_state_p));
@@ -259,6 +258,7 @@ void hvac_client_comm_gen_open_rpc(uint32_t svr_hash, string path, int fd)
 
 }
 
+// TODO should add more parameters to this function to fit the tier of PM
 void hvac_client_comm_gen_read_rpc(uint32_t svr_hash, int localfd, void *buffer, ssize_t count, off_t offset)
 {
     hg_addr_t svr_addr;
@@ -282,7 +282,7 @@ void hvac_client_comm_gen_read_rpc(uint32_t svr_hash, int localfd, void *buffer,
     assert(hvac_rpc_state_p->buffer);
     //hvac_rpc_state_p->value = 5;
 
-    /* create create handle to represent this rpc operation */
+    /* create handle to represent this rpc operation */
     hvac_comm_create_handle(svr_addr, hvac_client_rpc_id, &(hvac_rpc_state_p->handle));
 
     /* register buffer for rdma/bulk access by server */
@@ -298,20 +298,9 @@ void hvac_client_comm_gen_read_rpc(uint32_t svr_hash, int localfd, void *buffer,
      * input struct.  It was set above.
      */
     in.input_val = count;
+
     //Convert FD to remote FD
     in.accessfd = fd_redir_map[localfd];
-    /*
-    if(in.accessfd == 0) {
-	fprintf(stderr, "accessfd is 0, localfd is %d\n", localfd);
-	fprintf(stderr, "input_val is %ld and size is %ld\n", count, hvac_rpc_state_p->size);
-	bool tracked = hvac_file_tracked(localfd);
-	fprintf(stderr, "hvac file tracked is %s\n", tracked ? "true" : "false");
-	fprintf(stderr, "hvac file tracked : %s\n", fd_map[localfd].c_str());
-	//while (!fd_redir_map[localfd]);
-	in.accessfd = fd_redir_map[localfd];
-	fprintf(stderr, "redirection map filled\n");
-	}
-     */    
 	in.offset = offset;
     
     

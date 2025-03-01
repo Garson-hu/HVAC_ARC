@@ -17,9 +17,9 @@ namespace fs = std::filesystem;
 pthread_cond_t data_cond = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t data_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-map<int,string> fd_to_path;         // & File Descriptor -> Original path
-map<string, string> path_cache_map; // & Original path -> Redirection path
-queue<string> data_queue;           // & List of files to be moved
+map<int,string> fd_to_path;             // & Server File Descriptor -> Original path
+map<string, string> path_cache_map;     // & Original path -> Redirection path
+queue<string> data_queue;               // & List of files to be moved
 
 
 void *hvac_data_mover_fn(void *args)

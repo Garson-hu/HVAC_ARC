@@ -68,7 +68,7 @@ void hvac_init_comm(hg_bool_t listen)
             }
     */
     // OMPI_COMM_WORLD_RANK
-    char *rank_str = getenv("OMPI_COMM_WORLD_RANK"); // Get the rank of the server 
+    char *rank_str = getenv("SLURM_PROCID"); // Get the rank of the server 
     if (rank_str == NULL) {
         L4C_FATAL("SLURM_PROCID is not set. Please ensure the script is run through SLURM.");
         exit(EXIT_FAILURE);
@@ -327,6 +327,7 @@ hvac_rpc_handler_bulk_cb(const struct hg_cb_info *info)
 
 
 // & handle read request
+// ! corrsponding to the hvac_client_comm_gen_read_rpc() in hvac_comm_client.cpp
 static hg_return_t
 hvac_rpc_handler(hg_handle_t handle)
 {
@@ -378,10 +379,6 @@ hvac_rpc_handler(hg_handle_t handle)
     return (hg_return_t)ret;
 }
 
-
-
-
-
 /**
  * @brief Handle an open RPC request from a client.
  *
@@ -414,7 +411,8 @@ hvac_open_rpc_handler(hg_handle_t handle)
         redir_path = path_cache_map[redir_path];
         L4C_INFO("Redirected Path After cache %s", redir_path.c_str());
     }
-    // L4C_INFO("Server Rank %d : Successful Open %s", server_rank, in.path);    
+    // L4C_INFO("Server Rank %d : Successful Open %s", server_rank, in.path);  
+    // out.ret_status is the server file descriptor  
     out.ret_status = open(redir_path.c_str(),O_RDONLY);  
     fd_to_path[out.ret_status] = in.path;  
     HG_Respond(handle,NULL,NULL,&out);
