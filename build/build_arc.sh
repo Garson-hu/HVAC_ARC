@@ -1,11 +1,6 @@
 #!/bin/bash
 
 
-# export BBPATH=/mnt/local
-export HVAC_SERVER_COUNT=1
-export HVAC_LOG_LEVEL=800
-export RDMAV_FORK_SAFE=1
-export VERBS_LOG_LEVEL=4
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/home/ghu4/hvac/log4c-1.2.4/install/lib/pkgconfig
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/ghu4/hvac/log4c-1.2.4/install/lib
 export PATH=/home/ghu4/hvac/mercury-2.0.1/build/bin:$PATH
