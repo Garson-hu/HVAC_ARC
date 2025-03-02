@@ -39,5 +39,6 @@ ssize_t ms_read(int fd, void* buf, size_t count, off_t offset);
 */
 static hg_return_t hvac_ms_read_cb(const struct hg_cb_info *info);
 
+} // namespace hvac
 
 #endif // HVAC_MULTI_SOURCE_READ_HPP
