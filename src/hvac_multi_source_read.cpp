@@ -145,7 +145,7 @@ namespace hvac {
 
             if(!done)
             {
-                // TODO wait for a signal
+                // TODO wait for a signal or Global condition variable
             }
             
         }
@@ -164,4 +164,38 @@ namespace hvac {
 static hg_return_t hvac_ms_read_cb(const struct hg_cb_info *info)
 {
     hvac_prc_state* state = (hvac_prc_state*) info->arg;
+
+    hg_return_t ret;
+    hg_rpc_out_t out;
+
+    // parse the output
+    ret = HG_Get_output(info->info.forward.handle, &out);
+    assert(info->ret == HG_SUCCESS);
+
+    if(ret != HG_SUCCESS)
+    {
+        L4C_ERR("Failed to get output from RPC");
+        pthread_mutex_lock(&st->lock);
+        st->read_result = -1;
+        st->completed   = true;
+        pthread_mutex_unlock(&st->lock);
+
+        // ? should we signal the main thread?
+        return HG_SUCCESS;
+    }
+
+    ssize_t bytes_read = out.ret;                                   // number of bytes read by the RPC 
+
+    // free the output
+    ret = HG_Bulk_free(state->bulk_handle);
+    ret = HG_Free_output(info->info.forward.handle, &out);
+    ret = HG_Destroy(info->info.forward.handle);
+
+    // fill result
+    pthread_mutex_lock(&state->lock);
+    state->read_result = bytes_read;
+    state->completed = true;
+    pthread_mutex_unlock(&state->lock);
+
+    return HG_SUCCESS;
 }
