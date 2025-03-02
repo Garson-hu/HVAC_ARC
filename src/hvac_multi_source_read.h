@@ -34,23 +34,10 @@ namespace hvac {
  */
 ssize_t ms_read(int fd, void* buf, size_t count, off_t offset);
 
-
-/**
- * Returns the rank of the PM server.
- *
- * @return The rank of the PM server.
- */
-int get_PM_rank();
-
-/**
- * Returns the rank of the SSD server.
- * TODO should I exclude the PM server?
- * @return The rank of the SSD server.
- */
-int get_SSD_rank();
-
-} // namespace hvac
-
+/*
+    * Callback function for the PM read operation.
+*/
+static hg_return_t hvac_ms_read_cb(const struct hg_cb_info *info);
 
 
 #endif // HVAC_MULTI_SOURCE_READ_HPP

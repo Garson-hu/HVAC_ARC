@@ -36,16 +36,25 @@ extern "C" bool hvac_track_file(const char* path, int flags, int fd);
 
 /* struct used to carry state of overall operation across callbacks */
 struct hvac_rpc_state {
-    uint32_t value;
-    hg_size_t size;
-    void *buffer;
-    hg_bulk_t bulk_handle;
-    hg_handle_t handle;
+    uint32_t            value;
+    hg_size_t           size;
+    void                *buffer;
+    hg_bulk_t           bulk_handle;
+    hg_handle_t         handle;
+
+    // TODO: hvac multi source read
+    bool                completed;
+    pthread_mutex_t     lock;
+    pthread_cond_t      cond;
+
+    // TODO: multi source store read result
+    ssize_t             read_result; // e.g. -1 on fail, >=0 on success
+    cache_tier_t        requested_tier;       // or an enum: TIER_PM / TIER_SSD
 };
 
 // Carry CB Information for CB
 struct hvac_open_state{
-    uint32_t local_fd;
+    uint32_t            local_fd;
 };
 
 static hg_return_t

@@ -12,12 +12,10 @@
 #include "wrappers.h"             // Possibly needed for MAP_OR_FAIL
 
 
-pthread_mutex_t      lock;
-pthread_cond_t       cond;
-
-
 // A structure to hold the asynchronous state for the multi-source read
 struct ms_read_state {
+    pthread_mutex_t      lock;
+    pthread_cond_t       cond;
     bool                 completed;    // Have we returned data to the user?
     bool                 pm_done;      // Has PM request finished?
     bool                 ssd_done;     // Has SSD request finished?
@@ -33,6 +31,41 @@ int get_PM_rank()
 {
     // TODO: Implement this function
 }
+
+int get_SSD_rank() 
+{
+    // TODO: Implement this function
+}
+
+static hg_return_t hvac_ms_read_cb(const struct hg_cb_info *info);
+
+/*
+    * Callback function for the PM read operation.
+    @user_buf: The buffer to store the read data.
+    @count: Number of bytes to read.
+    @tier: The tier of the storage device (PM or SSD).
+*/
+static hg_rpc_state* create_rpc_state(void * user_buf, size_t count, cacher_tier_t tier) 
+{
+    hg_rpc_state* rpc_state = (hg_rpc_state*) malloc(sizeof(hg_rpc_state));
+    pthread_mutex_init(&rpc_state->lock, nullptr);
+    pthread_cond_init(&rpc_state->cond, nullptr);
+    rpc_state->completed = false;
+    rpc_state->result = -1;
+
+    rpc_state->user_buf = user_buf;
+    rpc_state->size = count;
+    rpc_state->tier = tier;
+    return rpc_state;
+}
+
+static void destroy_rpc_state(hg_rpc_state* rpc_state) 
+{
+    pthread_mutex_destroy(&rpc_state->lock);
+    pthread_cond_destroy(&rpc_state->cond);
+    free(rpc_state);
+}
+
 
 ssize_t hvac::ms_read(int fd, void* buf, size_t count, off_t offset) 
 {
@@ -54,17 +87,8 @@ ssize_t hvac::ms_read(int fd, void* buf, size_t count, off_t offset)
     }
 
     // 2. Create ms_read_state to store asynchronous results
-    ms_read_state state;
-    pthread_mutex_init(&state.lock, nullptr);
-    pthread_cond_init(&state.cond, nullptr);
-    state.completed = false;
-    state.pm_done = false;
-    state.ssd_done = false;
-    state.pm_result = -1;
-    state.ssd_result = -1;
-    state.user_buf = buf;
-    state.count = count;
-    state.offset = offset;
+    hvac_prc_state* pm_state = create_rpc_state(buf, count, CACHE_Tier_PM);
+    hvac_prc_state* ssd_state = create_rpc_state(buf, count, CACHE_Tier_SSD);
 
     // 3. Determine the "remote fd" or server rank
     // map the local fd to the remote fd, which will be used by the RPC
@@ -77,26 +101,59 @@ ssize_t hvac::ms_read(int fd, void* buf, size_t count, off_t offset)
 
     // 4. Launch PM read RPC
     hvac_client_comm_gen_read_rpc(pm_rank, remote_fd, buf, count, offset,
-                                pm_read_cb, &state, Tier_PM);
+                                    hvac_ms_read_cb, &state, CACHE_Tier_PM);
 
     // 5. Launch SSD read RPC
     hvac_client_comm_gen_read_rpc(ssd_rank, remote_fd, buf, count, offset,
-                                ssd_read_cb, &state, Tier_SSD);
+                                    hvac_ms_read_cb, &state, CACHE_Tier_SSD);
 
     // 6. Wait for one request to succeed
-    pthread_mutex_lock(&lock);
-    while(!state.completed && (!state.pm_done || !state.ssd_done)) 
+    ssize_t final_result = -1;
+    bool done = false;
+
+    while(done)
     {
-        pthread_cond_wait(&cond, &lock);
+        pthread_mutex_lock(&pm_state.lock);
+        bool pm_complete = pm_state->completed;
+        ssize_t pm_result = pm_state->read_result;
+        pthread_mutex_unlock(&pm_state.lock);
+
+        pthread_mutex_lock(&ssd_state.lock);
+        bool ssd_complete = ssd_state->completed;
+        ssize_t ssd_result = ssd_state->read_result;
+        pthread_mutex_unlock(&ssd_state.lock);
+
+        if(pm_complete && pm_result >= 0)
+        {
+            final_result = pm_result;
+            done = true;
+        } else if (ssd_complete && ssd_result >= 0)
+        {
+            final_result = ssd_result;
+            done = true;
+        } else if (pm_complete && ssd_complete)             // both done but both failed
+        {
+            if(pm_result <0 && ssd_result < 0)
+            {
+                final_result = -1;
+            } else 
+            {
+                final_result = std::max(pm_result, ssd_result);
+            }
+            done = true;
+        }
+
+        if(!done)
+        {
+            // TODO wait for a signal
+        }
+        
     }
-    bool done = state.completed;
-    bool pm_res = state.pm_done;
-    bool ssd_res = state.ssd_done;
-    pthread_mutex_unlock(&lock);
 
     // 7. Clean up
+    destroy_rpc_state(pm_state);
+    destroy_rpc_state(ssd_state);
 
     // 8. Return whichever result completed first
-
-    return 0;
+    return final_result;
 }
