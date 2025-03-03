@@ -4,6 +4,8 @@
 #include <map>	
 
 #include "hvac_comm.h"
+#include "hvac_cache_policy.h"
+#include "hvac_multi_source_read.h"
 #include "hvac_data_mover_internal.h"
 
 extern "C" {
@@ -34,23 +36,18 @@ extern std::map<int, std::string > fd_map;
 extern "C" bool hvac_file_tracked(int fd);
 extern "C" bool hvac_track_file(const char* path, int flags, int fd);
 
-/* struct used to carry state of overall operation across callbacks */
-struct hvac_rpc_state {
-    uint32_t            value;
-    hg_size_t           size;
-    void                *buffer;
-    hg_bulk_t           bulk_handle;
-    hg_handle_t         handle;
+// /* struct used to carry state of overall operation across callbacks */
+// struct hvac_rpc_state {
+//     uint32_t            value;
+//     hg_size_t           size;
+//     void                *buffer;
+//     hg_bulk_t           bulk_handle;
+//     hg_handle_t         handle;
 
-    // TODO: hvac multi source read
-    bool                completed;
-    pthread_mutex_t     lock;
-    pthread_cond_t      cond;
-
-    // TODO: multi source store read result
-    ssize_t             read_result; // e.g. -1 on fail, >=0 on success
-    cache_tier_t        requested_tier;       // or an enum: TIER_PM / TIER_SSD
-};
+//     // A pointer back to the ms_read_state, so the callback can update high-level info
+//     ms_read_state* ms;   
+//     cache_tier_t        requested_tier;  
+// };
 
 // Carry CB Information for CB
 struct hvac_open_state{
@@ -267,7 +264,6 @@ void hvac_client_comm_gen_open_rpc(uint32_t svr_hash, string path, int fd)
 
 }
 
-// TODO should add more parameters to this function to fit the tier of PM
 void hvac_client_comm_gen_read_rpc(uint32_t svr_hash, int localfd, void *buffer, ssize_t count, off_t offset)
 {
     hg_addr_t svr_addr;
@@ -319,6 +315,43 @@ void hvac_client_comm_gen_read_rpc(uint32_t svr_hash, int localfd, void *buffer,
     hvac_comm_free_addr(svr_addr);
 
     return;
+}
+
+void hvac_client_comm_gen_read_rpc_with_ms(uint32_t svr_hash, int localfd, void* buffer, ssize_t count, off_t offset,
+                                            hg_cb_t callback, struct hvac_rpc_state* rpc_state)
+{
+
+    hg_addr_t svr_addr = hvac_client_comm_lookup_addr(svr_hash);
+    hvac_rpc_in_t in;
+    const struct hg_info *hgi;
+    int ret;
+
+    hvac_comm_create_handle(svr_addr, hvac_client_rpc_id, &(rpc_state->handle));
+    
+    /* register buffer for rdma/bulk access by server */
+    rpc_state->size = count;
+    rpc_state->buffer = buffer;
+    assert(hvac_rpc_state_p->buffer);
+
+    hgi = HG_Get_info(rpc_state->handle);
+    assert(hgi);
+    ret = HG_Bulk_create(hgi->hg_class, 1, (void**) &(buffer),
+       &(rpc_state->size), HG_BULK_WRITE_ONLY, &(in.bulk_handle));
+    assert(ret == HG_SUCCESS);
+
+    rpc_state->bulk_handle = in.bulk_handle;
+
+    in.input_val = count;
+    in.accessfd = fd_redir_map[localfd];
+    in.offset = offset;
+    ret = HG_Forward(rpc_state->handle, callback, rpc_state, &in);
+    assert(ret == 0);
+
+    hvac_comm_free_addr(svr_addr);
+
+    return;
+
+
 }
 
 void hvac_client_comm_gen_seek_rpc(uint32_t svr_hash, int fd, int offset, int whence)

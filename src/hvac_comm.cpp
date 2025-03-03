@@ -29,14 +29,14 @@ static int hvac_server_rank = -1;
 static int server_rank = -1;
 
 
-/* struct used to carry state of overall operation across callbacks */
-struct hvac_rpc_state {
-    hg_size_t size;
-    void *buffer;
-    hg_bulk_t bulk_handle;
-    hg_handle_t handle;
-    hvac_rpc_in_t in;
-};
+// /* struct used to carry state of overall operation across callbacks */
+// struct hvac_rpc_state {
+//     hg_size_t size;
+//     void *buffer;
+//     hg_bulk_t bulk_handle;
+//     hg_handle_t handle;
+//     hvac_rpc_in_t in;
+// };
 
 //Initialize communication for both the client and server
 //processes

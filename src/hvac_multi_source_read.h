@@ -14,10 +14,27 @@
 #ifndef HVAC_MULTI_SOURCE_READ_HPP
 #define HVAC_MULTI_SOURCE_READ_HPP
 
-#include <cstddef>    // for size_t
-#include <sys/types.h> // for off_t
+#include <cstddef>                // for size_t
+#include <sys/types.h>            // for off_t
+
+struct hvac_rpc_state;
 
 namespace hvac {
+
+// A structure to hold the asynchronous state for the multi-source read
+struct ms_read_state {
+    pthread_mutex_t      lock;
+    pthread_cond_t       cond;
+    bool                 completed;    // Have we returned data to the user?
+    bool                 pm_done;      // Has PM request finished?
+    bool                 ssd_done;     // Has SSD request finished?
+    ssize_t              pm_result;    // Bytes read from PM
+    ssize_t              ssd_result;   // Bytes read from SSD
+    // void*                user_buf;     // Destination buffer
+    // size_t               count;        // Byte count to read
+    // off_t                offset;       // -1 if normal read, else pread offset
+};
+
 
 /**
  * Performs a multi-source read operation.
@@ -37,7 +54,7 @@ ssize_t ms_read(int fd, void* buf, size_t count, off_t offset);
 /*
     * Callback function for the PM read operation.
 */
-static hg_return_t hvac_ms_read_cb(const struct hg_cb_info *info);
+static hg_return_t ms_read_cb(const struct hg_cb_info *info);
 
 } // namespace hvac
 

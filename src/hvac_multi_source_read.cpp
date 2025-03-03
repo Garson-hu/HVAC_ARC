@@ -5,66 +5,16 @@
 #include <mutex>
 #include <condition_variable>
 
-#include "hvac_multi_source_read.hpp"
-#include "hvac_comm.h"            // For hvac_client_comm_gen_read_rpc, etc.
+#include "hvac_comm.h"
+#include "hvac_cache_policy.h"
+#include "hvac_multi_source_read.h"
 #include "hvac_internal.h"        // For hvac_file_tracked, hvac_get_path, etc.
 #include "hvac_logging.h"         // For L4C_INFO, L4C_ERR
-#include "wrappers.h"             // Possibly needed for MAP_OR_FAIL
 
+int get_PM_rank();
+int get_SSD_rank();
 
-// A structure to hold the asynchronous state for the multi-source read
-struct ms_read_state {
-    pthread_mutex_t      lock;
-    pthread_cond_t       cond;
-    bool                 completed;    // Have we returned data to the user?
-    bool                 pm_done;      // Has PM request finished?
-    bool                 ssd_done;     // Has SSD request finished?
-    ssize_t              pm_result;    // Bytes read from PM
-    ssize_t              ssd_result;   // Bytes read from SSD
-    void*                user_buf;     // Destination buffer
-    size_t               count;        // Byte count to read
-    off_t                offset;       // -1 if normal read, else pread offset
-};
-
-
-int get_PM_rank() 
-{
-    // TODO: Implement this function
-}
-
-int get_SSD_rank() 
-{
-    // TODO: Implement this function
-}
-
-static hg_return_t hvac_ms_read_cb(const struct hg_cb_info *info);
-
-/*
-    * Callback function for the PM read operation.
-    @user_buf: The buffer to store the read data.
-    @count: Number of bytes to read.
-    @tier: The tier of the storage device (PM or SSD).
-*/
-static hg_rpc_state* create_rpc_state(void * user_buf, size_t count, cacher_tier_t tier) 
-{
-    hg_rpc_state* rpc_state = (hg_rpc_state*) malloc(sizeof(hg_rpc_state));
-    pthread_mutex_init(&rpc_state->lock, nullptr);
-    pthread_cond_init(&rpc_state->cond, nullptr);
-    rpc_state->completed = false;
-    rpc_state->result = -1;
-
-    rpc_state->user_buf = user_buf;
-    rpc_state->size = count;
-    rpc_state->tier = tier;
-    return rpc_state;
-}
-
-static void destroy_rpc_state(hg_rpc_state* rpc_state) 
-{
-    pthread_mutex_destroy(&rpc_state->lock);
-    pthread_cond_destroy(&rpc_state->cond);
-    free(rpc_state);
-}
+static hg_return_t ms_read_cb(const struct hg_cb_info *info);
 
 namespace hvac {
     ssize_t hvac::ms_read(int fd, void* buf, size_t count, off_t offset) 
@@ -87,8 +37,18 @@ namespace hvac {
         }
 
         // 2. Create ms_read_state to store asynchronous results
-        hvac_prc_state* pm_state = create_rpc_state(buf, count, CACHE_Tier_PM);
-        hvac_prc_state* ssd_state = create_rpc_state(buf, count, CACHE_Tier_SSD);
+        ms_read_state *ms = new ms_read_state;
+        ms->completed = false;
+        ms->pm_done = false;
+        ms->ssd_done = false;
+
+        hvac_rpc_state* pm_state = create_rpc_state(buf, count, CACHE_Tier_PM);
+        pm_state->ms = ms;
+        pm_state->requested_tier = CACHE_Tier_PM;
+
+        hvac_rpc_state* ssd_state = create_rpc_state(buf, count, CACHE_Tier_SSD);
+        ssd_state->ms = ms;
+        ssd_state->requested_tier = CACHE_Tier_SSD;
 
         // 3. Determine the "remote fd" or server rank
         // map the local fd to the remote fd, which will be used by the RPC
@@ -100,18 +60,18 @@ namespace hvac {
         int ssd_rank = get_SSD_rank();
 
         // 4. Launch PM read RPC
-        hvac_client_comm_gen_read_rpc(pm_rank, remote_fd, buf, count, offset,
-                                        hvac_ms_read_cb, &state, CACHE_Tier_PM);
+        hvac_client_comm_gen_read_rpc_ms(pm_rank, remote_fd, buf, count, offset,
+                                        ms_read_cb, pm_state, CACHE_Tier_PM);
 
         // 5. Launch SSD read RPC
-        hvac_client_comm_gen_read_rpc(ssd_rank, remote_fd, buf, count, offset,
-                                        hvac_ms_read_cb, &state, CACHE_Tier_SSD);
+        hvac_client_comm_gen_read_rpc_ms(ssd_rank, remote_fd, buf, count, offset,
+                                        ms_read_cb, ssd_state, CACHE_Tier_SSD);
 
         // 6. Wait for one request to succeed
         ssize_t final_result = -1;
         bool done = false;
 
-        while(done)
+        while(!done)
         {
             pthread_mutex_lock(&pm_state.lock);
             bool pm_complete = pm_state->completed;
@@ -161,9 +121,9 @@ namespace hvac {
 } // namespace hvac
 
 
-static hg_return_t hvac_ms_read_cb(const struct hg_cb_info *info)
+static hg_return_t ms_read_cb(const struct hg_cb_info *info)
 {
-    hvac_prc_state* state = (hvac_prc_state*) info->arg;
+    hvac_rpc_state* state = (hvac_rpc_state*) info->arg;
 
     hg_return_t ret;
     hg_rpc_out_t out;
@@ -175,9 +135,9 @@ static hg_return_t hvac_ms_read_cb(const struct hg_cb_info *info)
     if(ret != HG_SUCCESS)
     {
         L4C_ERR("Failed to get output from RPC");
-        pthread_mutex_lock(&st->lock);
-        st->read_result = -1;
-        st->completed   = true;
+        pthread_mutex_lock(&state->lock);
+        state->read_result = -1;
+        state->completed   = true;
         pthread_mutex_unlock(&st->lock);
 
         // ? should we signal the main thread?
@@ -198,4 +158,15 @@ static hg_return_t hvac_ms_read_cb(const struct hg_cb_info *info)
     pthread_mutex_unlock(&state->lock);
 
     return HG_SUCCESS;
+}
+
+
+int get_PM_rank() 
+{
+    // TODO: Implement this function
+}
+
+int get_SSD_rank() 
+{
+    // TODO: Implement this function
 }

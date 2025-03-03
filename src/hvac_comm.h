@@ -9,8 +9,12 @@ extern "C" {
 }
 
 
+#include "hvac_cache_policy.h"
 #include <string>
 using namespace std;
+
+struct ms_read_state;
+
 /* visible API for example RPC operation */
 
 //RPC Open Handler
@@ -63,6 +67,10 @@ hg_context_t *hvac_comm_get_context();
 //Client
 void hvac_client_comm_gen_seek_rpc(uint32_t svr_hash, int fd, int offset, int whence);
 void hvac_client_comm_gen_read_rpc(uint32_t svr_hash, int localfd, void* buffer, ssize_t count, off_t offset);
+
+// Multi source read function
+void hvac_client_comm_gen_read_rpc_with_ms(uint32_t svr_hash, int localfd, void* buffer, ssize_t count, off_t offset,
+                                            hg_cb_t callback, struct hvac_rpc_state* rpc_state);
 void hvac_client_comm_gen_open_rpc(uint32_t svr_hash, string path, int fd);
 void hvac_client_comm_gen_close_rpc(uint32_t svr_hash, int fd);
 hg_addr_t hvac_client_comm_lookup_addr(int rank);
@@ -78,6 +86,23 @@ hg_id_t hvac_rpc_register(void);
 hg_id_t hvac_open_rpc_register(void);
 hg_id_t hvac_close_rpc_register(void);
 hg_id_t hvac_seek_rpc_register(void);
+
+/* struct used to carry state of overall operation across callbacks */
+struct hvac_rpc_state {
+    uint32_t            value;
+    hg_size_t           size;
+    void                *buffer;
+    hg_bulk_t           bulk_handle;
+    hg_handle_t         handle;
+    hvac_rpc_in_t       in;
+
+
+    // A pointer back to the ms_read_state, so the callback can update high-level info
+    ms_read_state* ms;   
+    cache_tier_t        requested_tier;  
+};
+
+#include "hvac_multi_source_read.h"
 
 #endif
 
