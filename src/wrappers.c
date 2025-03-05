@@ -51,48 +51,48 @@ struct Stats pread_stats = {0, 0.0};
 
 bool verbose = 0;
 
-ssize_t (*__real_read)(int, void*, size_t) = NULL;
-ssize_t (*__real_pread)(int fd, void *buf, size_t count, off_t offset) = NULL;
-int (*__real_open)(const char *pathname, int flags, ...) = NULL;
-int (*__real_close)(int fd) = NULL;
+// ssize_t (*__real_read)(int, void*, size_t) = NULL;
+// ssize_t (*__real_pread)(int fd, void *buf, size_t count, off_t offset) = NULL;
+// int (*__real_open)(const char *pathname, int flags, ...) = NULL;
+// int (*__real_close)(int fd) = NULL;
 
-__attribute__((constructor))
-static void init_real_read() {
-    fprintf(stderr, "DEBUG_HVAC: Initializing __real_read\n");
-    __real_read = (ssize_t (*)(int, void*, size_t)) dlsym(RTLD_NEXT, "read");
-    if (!__real_read) {
-        fprintf(stderr, "ERROR_HVAC: dlsym failed to load __real_read\n");
-        exit(1);
-    }
-}
+// __attribute__((constructor))
+// static void init_real_read() {
+//     fprintf(stderr, "DEBUG_HVAC: Initializing __real_read\n");
+//     __real_read = (ssize_t (*)(int, void*, size_t)) dlsym(RTLD_NEXT, "read");
+//     if (!__real_read) {
+//         fprintf(stderr, "ERROR_HVAC: dlsym failed to load __real_read\n");
+//         exit(1);
+//     }
+// }
 
-__attribute__((constructor))
-static void init_real_open() {
-    fprintf(stderr, "DEBUG_HVAC: Initializing __real_open\n");
-    __real_open = (int (*)(const char*, int, ...)) dlsym(RTLD_NEXT, "open");
-    if (!__real_open) {
-        fprintf(stderr, "ERROR_HVAC: dlsym failed to load __real_open\n");
-        exit(1);
-    }
-}
-__attribute__((constructor))
-static void init_real_close() {
-    fprintf(stderr, "DEBUG_HVAC: Initializing __real_close\n");
-    __real_close = (int (*)(int))  dlsym(RTLD_NEXT, "close");
-    if (!__real_close) {
-        fprintf(stderr, "ERROR_HVAC: dlsym failed to load __real_close\n");
-        exit(1);
-    }
-}
-__attribute__((constructor))
-static void init_real_pread() {
-    fprintf(stderr, "DEBUG_HVAC: Initializing __real_pread\n");
-    __real_pread = (ssize_t (*)(int, void*, size_t, off_t)) dlsym(RTLD_NEXT, "pread");
-    if (!__real_pread) {
-        fprintf(stderr, "ERROR_HVAC: dlsym failed to load __real_pread\n");
-        exit(1);
-    }
-}
+// __attribute__((constructor))
+// static void init_real_open() {
+//     fprintf(stderr, "DEBUG_HVAC: Initializing __real_open\n");
+//     __real_open = (int (*)(const char*, int, ...)) dlsym(RTLD_NEXT, "open");
+//     if (!__real_open) {
+//         fprintf(stderr, "ERROR_HVAC: dlsym failed to load __real_open\n");
+//         exit(1);
+//     }
+// }
+// __attribute__((constructor))
+// static void init_real_close() {
+//     fprintf(stderr, "DEBUG_HVAC: Initializing __real_close\n");
+//     __real_close = (int (*)(int))  dlsym(RTLD_NEXT, "close");
+//     if (!__real_close) {
+//         fprintf(stderr, "ERROR_HVAC: dlsym failed to load __real_close\n");
+//         exit(1);
+//     }
+// }
+// __attribute__((constructor))
+// static void init_real_pread() {
+//     fprintf(stderr, "DEBUG_HVAC: Initializing __real_pread\n");
+//     __real_pread = (ssize_t (*)(int, void*, size_t, off_t)) dlsym(RTLD_NEXT, "pread");
+//     if (!__real_pread) {
+//         fprintf(stderr, "ERROR_HVAC: dlsym failed to load __real_pread\n");
+//         exit(1);
+//     }
+// }
 
 
 /* fopen wrapper */
@@ -389,8 +389,8 @@ ssize_t WRAP_DECL(pread)(int fd, void *buf, size_t count, off_t offset)
 	{             
    
 		L4C_INFO("pread to tracked file %s",path);
-		// ret = hvac_remote_pread(fd, buf, count, offset);
-		ret = ms_read(fd,buf,count, offset);
+		ret = hvac_remote_pread(fd, buf, count, offset);
+		// ret = ms_read(fd,buf,count, offset);
 
 
 		// TODO: before donʻt have this if condition on ARC

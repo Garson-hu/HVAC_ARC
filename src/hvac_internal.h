@@ -10,7 +10,6 @@
 #ifndef __HVAC_INTERNAL_H__
 #define __HVAC_INTERNAL_H__
 
-#include <dlfcn.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <stdarg.h> /* va_list, va_start, va_arg, va_end */
@@ -27,7 +26,7 @@
 #ifdef HVAC_PRELOAD
 
 #define REAL_DECL(func,ret,args) \
-     extern ret (*__real_ ## func)args;
+    ret (*__real_ ## func)args;
 
 #define WRAP_DECL(__name) __name
 
