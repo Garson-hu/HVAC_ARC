@@ -8,8 +8,8 @@ extern "C" {
 #include <mercury_proc_string.h>
 }
 
-
-#include "hvac_cache_policy.h"
+// #include "hvac_multi_source_read.h"
+// #include "hvac_cache_policy.h"
 #include <string>
 using namespace std;
 
@@ -98,11 +98,8 @@ struct hvac_rpc_state {
 
 
     // A pointer back to the ms_read_state, so the callback can update high-level info
-    ms_read_state* ms;   
-    cache_tier_t        requested_tier;  
+    // ms_read_state* ms;   
+    // cache_tier_t        requested_tier;  
 };
-
-#include "hvac_multi_source_read.h"
-
 #endif
 

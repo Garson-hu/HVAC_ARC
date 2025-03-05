@@ -1,25 +1,28 @@
-/**
- * Author: Guangxing Hu
- * Affiliation: North Carolina State University
- * Email: ghu4@ncsu.edu
- * 
- * This header file declares functions for performing multi-source read operations.
- * For each read request, the client concurrently issues I/O requests to both the PM and SSD tiers via RPC.
- * The first successful response is used, while slower or failed responses are ignored.
- *
- * This mechanism ensures that the read operation returns with the lowest latency,
- * even if the data exists only in SSD.
- */
+#ifndef HVAC_MULTI_SOURCE_READ_H
+#define HVAC_MULTI_SOURCE_READ_H
 
-#ifndef HVAC_MULTI_SOURCE_READ_HPP
-#define HVAC_MULTI_SOURCE_READ_HPP
+#ifdef __cplusplus
+    #include <cstddef>
+    #include <mutex>
+extern "C" {
+#endif
+#include <pthread.h>
+#include <stddef.h>   
+#include <stdint.h>
+#include <stdbool.h>
+#include <unistd.h>
 
-#include <cstddef>                // for size_t
-#include <sys/types.h>            // for off_t
-
-struct hvac_rpc_state;
-
+#ifdef __cplusplus
+} 
 namespace hvac {
+#endif
+
+ssize_t ms_read(int fd, void* buf, size_t count, off_t offset);
+
+#ifdef __cplusplus
+}  // namespace hvac
+#endif
+
 
 // A structure to hold the asynchronous state for the multi-source read
 struct ms_read_state {
@@ -30,32 +33,10 @@ struct ms_read_state {
     bool                 ssd_done;     // Has SSD request finished?
     ssize_t              pm_result;    // Bytes read from PM
     ssize_t              ssd_result;   // Bytes read from SSD
-    // void*                user_buf;     // Destination buffer
-    // size_t               count;        // Byte count to read
-    // off_t                offset;       // -1 if normal read, else pread offset
 };
 
+#endif  // HVAC_MULTI_SOURCE_READ_H
 
-/**
- * Performs a multi-source read operation.
- *
- * This function concurrently issues read requests (via RPC) to both the PM and SSD tiers.
- * It waits for the first valid response and returns the number of bytes read.
- *
- * @param fd      File descriptor for the tracked file.
- * @param buf     Buffer to store the read data.
- * @param count   Number of bytes to read.
- * @param offset  Offset in the file from where to read.
- *
- * @return The number of bytes read on success, or -1 on failure.
- */
-ssize_t ms_read(int fd, void* buf, size_t count, off_t offset);
 
-/*
-    * Callback function for the PM read operation.
-*/
-static hg_return_t ms_read_cb(const struct hg_cb_info *info);
 
-} // namespace hvac
 
-#endif // HVAC_MULTI_SOURCE_READ_HPP

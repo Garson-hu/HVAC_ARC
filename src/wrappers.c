@@ -23,6 +23,7 @@
 #include "hvac_internal.h"
 #include "hvac_logging.h"
 #include "execinfo.h"
+// #include "hvac_multi_source_read.h"
 
 // Global symbol that will "turn off" all I/O redirection.  Set during init
 // and shutdown to prevent us from getting into init loops that cause a
@@ -49,6 +50,51 @@ struct Stats read_stats = {0, 0.0};
 struct Stats pread_stats = {0, 0.0};
 
 bool verbose = 0;
+
+ssize_t (*__real_read)(int, void*, size_t) = NULL;
+ssize_t (*__real_pread)(int fd, void *buf, size_t count, off_t offset) = NULL;
+int (*__real_open)(const char *pathname, int flags, ...) = NULL;
+int (*__real_close)(int fd) = NULL;
+
+__attribute__((constructor))
+static void init_real_read() {
+    fprintf(stderr, "DEBUG_HVAC: Initializing __real_read\n");
+    __real_read = (ssize_t (*)(int, void*, size_t)) dlsym(RTLD_NEXT, "read");
+    if (!__real_read) {
+        fprintf(stderr, "ERROR_HVAC: dlsym failed to load __real_read\n");
+        exit(1);
+    }
+}
+
+__attribute__((constructor))
+static void init_real_open() {
+    fprintf(stderr, "DEBUG_HVAC: Initializing __real_open\n");
+    __real_open = (int (*)(const char*, int, ...)) dlsym(RTLD_NEXT, "open");
+    if (!__real_open) {
+        fprintf(stderr, "ERROR_HVAC: dlsym failed to load __real_open\n");
+        exit(1);
+    }
+}
+__attribute__((constructor))
+static void init_real_close() {
+    fprintf(stderr, "DEBUG_HVAC: Initializing __real_close\n");
+    __real_close = (int (*)(int))  dlsym(RTLD_NEXT, "close");
+    if (!__real_close) {
+        fprintf(stderr, "ERROR_HVAC: dlsym failed to load __real_close\n");
+        exit(1);
+    }
+}
+__attribute__((constructor))
+static void init_real_pread() {
+    fprintf(stderr, "DEBUG_HVAC: Initializing __real_pread\n");
+    __real_pread = (ssize_t (*)(int, void*, size_t, off_t)) dlsym(RTLD_NEXT, "pread");
+    if (!__real_pread) {
+        fprintf(stderr, "ERROR_HVAC: dlsym failed to load __real_pread\n");
+        exit(1);
+    }
+}
+
+
 /* fopen wrapper */
 // FILE *WRAP_DECL(fopen)(const char *path, const char *mode)
 // {
@@ -101,6 +147,7 @@ bool verbose = 0;
 // 	return ptr;
 // }
 
+
 int WRAP_DECL(open)(const char *pathname, int flags, ...)
 {
 	struct timespec start, end;
@@ -126,7 +173,7 @@ int WRAP_DECL(open)(const char *pathname, int flags, ...)
 	 TODO: should we pass the open to GPFS?
 	 */
 	ret = __real_open(pathname, flags, mode);
-
+	L4C_INFO("DEBUG_HU: HVAC: Tracked Open");
 	// Determines whether to track
 	if (ret != -1){
 		if (hvac_track_file(pathname, flags, ret))
@@ -146,7 +193,7 @@ int WRAP_DECL(open)(const char *pathname, int flags, ...)
 			open_stats.count++;
     		open_stats.total_time += delta;
 			// ! End open delta time
-			// L4C_INFO("Open: Tracking File %s",pathname);
+			L4C_INFO("Open: Tracking File %s",pathname);
 		}else{
 			// ret = __real_open(pathname, flags, mode);
 			// ! Begin open delta time
@@ -254,7 +301,7 @@ int WRAP_DECL(close)(int fd)
 	/* Check if hvac data has been initialized? Can we possibly hit a close call before an open call? */
 	MAP_OR_FAIL(close);
 	if (g_disable_redirect || tl_disable_redirect) return __real_close(fd);
-
+	L4C_INFO("DEBUG_HU: HVAC: Tracked Close");
 	const char *path = hvac_get_path(fd);
 	if (path)
 	{
@@ -293,13 +340,14 @@ ssize_t WRAP_DECL(read)(int fd, void *buf, size_t count)
     clock_gettime(CLOCK_MONOTONIC, &start);
 	int ret = -1;
 	
-	//remove me
     MAP_OR_FAIL(read);	
 	
     const char *path = hvac_get_path(fd);
 
-
+	L4C_INFO("DEBUG_HU: HVAC: Tracked Read");
 	ret = hvac_remote_read(fd,buf,count);
+	// ret = ms_read(fd, buf, count, 0);
+
 
 	// if (path)
     // {
@@ -334,13 +382,16 @@ ssize_t WRAP_DECL(pread)(int fd, void *buf, size_t count, off_t offset)
     clock_gettime(CLOCK_MONOTONIC, &start);
 	ssize_t ret = -1;
 	MAP_OR_FAIL(pread);
+	L4C_INFO("DEBUG_HU: HVAC: Tracked PRead");
 
 	const char *path = hvac_get_path(fd);
 	if (path)
 	{             
    
 		L4C_INFO("pread to tracked file %s",path);
-		ret = hvac_remote_pread(fd, buf, count, offset);
+		// ret = hvac_remote_pread(fd, buf, count, offset);
+		ret = ms_read(fd,buf,count, offset);
+
 
 		// TODO: before donʻt have this if condition on ARC
 		// TODO: original: ret = hvac_remote_pread(fd, buf, count, offset);

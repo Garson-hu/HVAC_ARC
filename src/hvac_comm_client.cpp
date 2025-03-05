@@ -4,8 +4,8 @@
 #include <map>	
 
 #include "hvac_comm.h"
-#include "hvac_cache_policy.h"
-#include "hvac_multi_source_read.h"
+// #include "hvac_cache_policy.h"
+// #include "hvac_multi_source_read.h"
 #include "hvac_data_mover_internal.h"
 
 extern "C" {
@@ -35,19 +35,6 @@ extern std::map<int, int > fd_redir_map;
 extern std::map<int, std::string > fd_map;
 extern "C" bool hvac_file_tracked(int fd);
 extern "C" bool hvac_track_file(const char* path, int flags, int fd);
-
-// /* struct used to carry state of overall operation across callbacks */
-// struct hvac_rpc_state {
-//     uint32_t            value;
-//     hg_size_t           size;
-//     void                *buffer;
-//     hg_bulk_t           bulk_handle;
-//     hg_handle_t         handle;
-
-//     // A pointer back to the ms_read_state, so the callback can update high-level info
-//     ms_read_state* ms;   
-//     cache_tier_t        requested_tier;  
-// };
 
 // Carry CB Information for CB
 struct hvac_open_state{
@@ -331,7 +318,7 @@ void hvac_client_comm_gen_read_rpc_with_ms(uint32_t svr_hash, int localfd, void*
     /* register buffer for rdma/bulk access by server */
     rpc_state->size = count;
     rpc_state->buffer = buffer;
-    assert(hvac_rpc_state_p->buffer);
+    assert(rpc_state->buffer);
 
     hgi = HG_Get_info(rpc_state->handle);
     assert(hgi);

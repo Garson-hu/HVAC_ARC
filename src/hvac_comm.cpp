@@ -53,8 +53,8 @@ void hvac_init_comm(hg_bool_t listen)
     // getenv("SLURM_JOB_NODELIST") ? getenv("SLURM_JOB_NODELIST") : "NULL");
 
     // L4C_INFO("OMPI_COMM_WORLD_RANK=%s\n", getenv("OMPI_COMM_WORLD_RANK") ? getenv("OMPI_COMM_WORLD_RANK") : "NULL");
-
-	const char *info_string = "ofi+verbs;ofi_rxm://";  
+    // ofi+verbs; / tcp;
+	const char *info_string = "tcp;ofi_rxm://";  // 
     /* 	int *pid_server = NULL;
         PMI_Get_rank(pid_server);
         L4C_INFO("PMI Rank ID: %d \n", pid_server);  
@@ -67,8 +67,8 @@ void hvac_init_comm(hg_bool_t listen)
             L4C_INFO("Exported PMIX_RANK: %s \n", rankstr_str.c_str());
             }
     */
-    // OMPI_COMM_WORLD_RANK
-    char *rank_str = getenv("SLURM_PROCID"); // Get the rank of the server 
+    // OMPI_COMM_WORLD_RANK / SLURM_PROCID
+    char *rank_str = getenv("OMPI_COMM_WORLD_RANK"); // Get the rank of the server 
     if (rank_str == NULL) {
         L4C_FATAL("SLURM_PROCID is not set. Please ensure the script is run through SLURM.");
         exit(EXIT_FAILURE);
@@ -497,8 +497,7 @@ hvac_close_rpc_register(void)
         hg_class, "hvac_close_rpc", hvac_close_in_t, void, hvac_close_rpc_handler);
     
 
-    int ret =  HG_Registered_disable_response(hg_class, tmp,
-                                           HG_TRUE);                        
+    int ret =  HG_Registered_disable_response(hg_class, tmp,HG_TRUE);                        
     assert(ret == HG_SUCCESS);
 
     return tmp;

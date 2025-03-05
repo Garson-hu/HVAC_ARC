@@ -10,6 +10,7 @@
 #ifndef __HVAC_INTERNAL_H__
 #define __HVAC_INTERNAL_H__
 
+#include <dlfcn.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <stdarg.h> /* va_list, va_start, va_arg, va_end */
@@ -26,13 +27,20 @@
 #ifdef HVAC_PRELOAD
 
 #define REAL_DECL(func,ret,args) \
-     ret (*__real_ ## func)args;
+     extern ret (*__real_ ## func)args;
 
 #define WRAP_DECL(__name) __name
 
+#ifdef __cplusplus
+    #define FUNC_CAST(func) reinterpret_cast<decltype(__real_ ## func)>
+#else
+    #define FUNC_CAST(func) (typeof(__real_ ## func)) 
+#endif
+
 #define MAP_OR_FAIL(func) \
-    if (!(__real_ ## func)) \
+if (!(__real_ ## func)) \
 { \
+    fprintf(stderr, "DEBUG_HVAC: Mapping symbol for %s\n", #func); \
     __real_ ## func = dlsym(RTLD_NEXT, #func); \
     if(!(__real_ ## func)) { \
         fprintf(stderr, "hvac failed to map symbol: %s\n", #func); \
