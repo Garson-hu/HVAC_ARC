@@ -48,8 +48,8 @@ struct hvac_rpc_state {
     pthread_cond_t      cond;
 
     // TODO: multi source store read result
-    ssize_t             read_result; // e.g. -1 on fail, >=0 on success
-    cache_tier_t        requested_tier;       // or an enum: TIER_PM / TIER_SSD
+    // ssize_t             read_result;             // -1 on fail, >=0 on success
+    // cache_tier_t        requested_tier;          
 };
 
 // Carry CB Information for CB

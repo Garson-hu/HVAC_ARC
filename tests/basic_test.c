@@ -62,9 +62,6 @@ void test_file_read(uint32_t iterations)
     /* Seed random num gen */
     srand(time(NULL));
 
-    
-
-
     for (int lcv = 0; lcv < iterations; lcv++)
     {
         uint32_t id = rand() % FILE_COUNT;
@@ -115,8 +112,7 @@ if (fork() == 0)
 }
 
 int main(int argc, char **argv){
-
-
+    printf("Starting test program\n");
     generate_files(FILE_COUNT);
 
     test_file_read(FILE_COUNT);
